@@ -189,7 +189,7 @@
   <div class="grid" id="cardGrid"></div>
 
   <footer>
-    วิธีคำนวณ: MNF = ค่าเฉลี่ย flow ในช่วงเวลาใช้น้ำต่ำสุดของแต่ละจุดวัด DM (ตรวจจับอัตโนมัติต่อพื้นที่จากข้อมูลจริงย้อนหลัง 28 วัน) · Baseline = ค่าเฉลี่ย ± 2SD ของ MNF ช่วง 14 วันแรก · สถานะ "แจ้งเตือน" ต้องเกินเกณฑ์ต่อเนื่องอย่างน้อย 3 ใน 5 วันล่าสุด เพื่อกรอง event ใช้น้ำชั่วคราวออก
+    วิธีคำนวณ: MNF = ค่าเฉลี่ย flow ในช่วงเวลาใช้น้ำต่ำสุดของแต่ละจุดวัด DM (ตรวจจับอัตโนมัติต่อพื้นที่จากข้อมูลจริงย้อนหลัง 28 วัน ไม่ใช่ช่วงเวลาคงที่เดียวกันทุกจุดวัด DM) · Baseline = ค่าเฉลี่ย ± 2SD ของ MNF ช่วง 14 วันแรก · สถานะ "แจ้งเตือน" ต้องเกินเกณฑ์ต่อเนื่องอย่างน้อย 3 ใน 5 วันล่าสุด เพื่อกรอง event ใช้น้ำชั่วคราวออก
   </footer>
 </div>
 
@@ -208,6 +208,12 @@
     </div>
 
     <div class="chart-box">
+      <div class="ct">CUSUM — การสะสมของส่วนเบี่ยงเบนจากฐาน <span id="mkBadge" class="mono" style="font-size:11px;font-weight:400;"></span></div>
+      <canvas id="chartCusum"></canvas>
+      <div class="note" id="cusumNote"></div>
+    </div>
+
+    <div class="chart-box">
       <div class="ct">รูปแบบการไหลรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
       <canvas id="chartHourly"></canvas>
       <div class="note" id="hourlyNote">แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU</div>
@@ -216,17 +222,10 @@
     <div class="chart-box">
       <div class="ct">แรงดันน้ำรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
       <canvas id="chartPressure"></canvas>
-      <div class="note" id="pressureNote">ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว</div>
+      <div class="note" id="pressureNote">ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกฮวบพร้อมกับ flow พุ่งค้าง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว</div>
     </div>
   </div>
 </div>
-
-
-    <div class="chart-box">
-      <div class="ct">CUSUM — การสะสมของส่วนเบี่ยงเบนจากฐาน <span id="mkBadge" class="mono" style="font-size:11px;font-weight:400;"></span></div>
-      <canvas id="chartCusum"></canvas>
-      <div class="note" id="cusumNote"></div>
-    </div>
 
 <script>
 /* ---------------------------------------------------------------------
@@ -505,7 +504,6 @@ function summaryFromCsv(rows){
       name: r.dma_name || r.dma_code,
       status: r.status, case: r.case, caseReason: r.case_reason,
       noDataDays: (r.no_data_days!==undefined && r.no_data_days!=='') ? Number(r.no_data_days) : null,
-      mnfStart: r.mnf_start || null, mnfEnd: r.mnf_end || null,
       currentMnf: Number(r.current_mnf),
       mean: Number(r.baseline_mean),
       sd: Number(r.baseline_sd),
@@ -564,7 +562,7 @@ let data = [];
 const STATUS_LABEL = {alert:'แจ้งเตือน', watch:'เฝ้าระวัง', ok:'ปกติ', no_data:'ไม่มีข้อมูล'};
 const HOURLY_NOTE_DEFAULT = 'แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU';
 const HOURLY_NOTE_EMPTY = 'ไม่มีข้อมูลราย 15 นาทีสำหรับจุดวัด DM นี้ — สถานะ "ปกติ" จึงไม่ถูกส่งเข้า flow_log.csv เพื่อลดขนาดไฟล์ (ดูกราฟรายวันได้เฉพาะ DMA ที่อยู่ในสถานะเฝ้าระวัง/แจ้งเตือน — MNF/CUSUM ด้านบนยังใช้งานได้ตามปกติ)';
-const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว';
+const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกฮวบพร้อมกับ flow พุ่งค้าง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว';
 const PRESSURE_NOTE_EMPTY = 'ไม่มีข้อมูลแรงดันราย 15 นาทีสำหรับจุดวัด DM นี้ (เหตุผลเดียวกับกราฟการไหลด้านบน)';
 
 function renderAll(){
@@ -596,7 +594,7 @@ async function refreshFromCsv(isFirstLoad){
           mnfSeries: sr.mnfSeries, totalSeries: sr.totalSeries,
           mean: s.mean, sd: s.sd, threshold: s.threshold, watchThreshold: s.watchThreshold,
           status: s.status, case: s.case, caseReason: s.caseReason, currentMnf: s.currentMnf,
-          noDataDays: s.noDataDays, mnfStart: s.mnfStart, mnfEnd: s.mnfEnd,
+          noDataDays: s.noDataDays,
           excessPerHour: s.excessPerHour, estLossPerDay: s.estLossPerDay, baseWinLen: s.baseWinLen,
           mk: s.mk,
           cs: {cPlusSeries: sr.cPlusSeries, hAbs: s.cusumH, breached: s.cusumBreached, breachIndex: breachIdx},
@@ -653,8 +651,8 @@ function renderKpis(){
     {label:'สถานะเฝ้าระวัง', val:watchCount, cls:'watch'},
     {label:'สถานะปกติ', val:okCount, cls:'ok'},
     {label:'ไม่มีข้อมูล', val:noDataCount, cls:'no_data'},
-    // {label:'ปริมาณจ่ายรวมวันนี้', val:Math.round(totalToday).toLocaleString(), unit:'m³', cls:''},
-    // {label:'สูญเสียประเมินรวม/วัน', val:Math.round(totalLoss).toLocaleString(), unit:'m³', cls: totalLoss>0?'alert':''},
+    {label:'ปริมาณจ่ายรวมวันนี้', val:Math.round(totalToday).toLocaleString(), unit:'m³', cls:''},
+    {label:'สูญเสียประเมินรวม/วัน', val:Math.round(totalLoss).toLocaleString(), unit:'m³', cls: totalLoss>0?'alert':''},
   ];
   document.getElementById('kpis').innerHTML = kpis.map(k=>`
     <div class="kpi ${k.cls}">
@@ -722,7 +720,6 @@ function renderCards(){
         <div class="metrics">
           <span style="color:var(--gray);">ไม่มีข้อมูลมา ${daysTxt}</span>
         </div>
-        <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Night Flow ที่ตั้งไว้: ${d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : '—'}</div>
       </div>`;
     }
     const spark = sparklinePath(d.a.totalSeries.slice(-14),200,36);
@@ -738,7 +735,6 @@ function renderCards(){
         <span>MNF ปัจจุบัน <span class="mnf">${d.a.currentMnf.toFixed(1)}</span></span>
         <span>ฐาน <span class="mnf">${d.a.mean.toFixed(1)}</span></span>
       </div>
-      <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Night Flow: ${d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : '—'}</div>
     </div>`;
   }).join('');
 }
@@ -756,7 +752,6 @@ function openModal(code){
     // ไม่มีข้อมูลราย 15 นาที/รายวันให้ RTU นี้เลย (ถูกตัดออกจาก compute_metrics ตั้งแต่ต้น) — แสดงข้อความ
     // อธิบายตรงๆ แทนที่จะพยายามวาดกราฟจากข้อมูลว่างเปล่า แล้วเคลียร์กราฟเก่าที่อาจค้างจาก DMA ก่อนหน้าทิ้ง
     const daysTxt = d.a.noDataDays!=null ? `${d.a.noDataDays.toFixed(1)} วัน` : 'ไม่ทราบจำนวนวันแน่ชัด';
-    const windowTxt = d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : 'ไม่ทราบ';
     document.getElementById('mKpis').innerHTML = `
       <div class="mkpi" style="grid-column:1/-1;">
         <div class="l">สถานะ</div>
@@ -764,8 +759,7 @@ function openModal(code){
           ⚫ ไม่มีข้อมูลจาก RTU นี้มา ${daysTxt} (flow = 0 ติดต่อกัน) — สงสัย RTU เสีย/สื่อสารขาด ไม่ได้คำนวณ MNF/CUSUM ให้
           เนื่องจากไม่มีข้อมูลจริงให้วิเคราะห์ กรุณาตรวจสอบ RTU ในสนาม
         </div>
-      </div>
-      <div class="mkpi"><div class="l">ช่วง Night Flow (MNF Window) ที่ตั้งไว้</div><div class="v mono">${windowTxt}</div></div>`;
+      </div>`;
     document.getElementById('mHardBanner').style.display = 'none';
 
     [mnfChart, cusumChart, hourlyChart, pressureChart].forEach(c => { if(c) c.destroy(); });
@@ -784,13 +778,12 @@ function openModal(code){
 
   document.getElementById('mKpis').innerHTML = `
     <div class="mkpi"><div class="l">MNF ปัจจุบัน</div><div class="v mono">${d.a.currentMnf.toFixed(1)} m³/hr</div></div>
-    <div class="mkpi"><div class="l">ช่วง Night Flow (MNF Window)</div><div class="v mono">${d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : '—'}</div></div>
     <div class="mkpi"><div class="l">ค่าเฉลี่ยฐาน</div><div class="v mono">${d.a.mean.toFixed(1)} m³/hr</div></div>
     <div class="mkpi"><div class="l">เกณฑ์แจ้งเตือน (+2SD)</div><div class="v mono">${d.a.threshold.toFixed(1)} m³/hr</div></div>
     <div class="mkpi"><div class="l">สูญเสียประเมิน</div><div class="v mono">${d.a.case==='C'?'—':Math.round(d.a.estLossPerDay)+' m³/วัน'}</div></div>
     <div class="mkpi"><div class="l">Mann-Kendall (10 วัน)</div><div class="v mono" style="font-size:13px;">${d.a.mk.trend}</div></div>
     <div class="mkpi"><div class="l">CUSUM</div><div class="v mono" style="font-size:13px;">${d.a.cs.breached?`ตัดเกณฑ์ที่วันหลัง baseline #${d.a.cs.breachIndex+1}`:'ยังไม่ตัดเกณฑ์'}</div></div>
-    <!--<div class="mkpi"><div class="l">Sustained Flow วันนี้</div><div class="v mono" style="font-size:13px;">${d.a.sustainedRunIntervals} จาก 96 intervals${d.a.sustainedFlowBreach?' ⚠️':''}</div></div>-->
+    <div class="mkpi"><div class="l">Sustained Flow วันนี้</div><div class="v mono" style="font-size:13px;">${d.a.sustainedRunIntervals} จาก 96 intervals${d.a.sustainedFlowBreach?' ⚠️':''}</div></div>
     <div class="mkpi"><div class="l">แรงดันตกยืนยัน</div><div class="v mono" style="font-size:13px;">${d.a.pressureDropConfirmed?'ใช่ — ตกร่วมกับ flow สูง':'ไม่พบ'}</div></div>
     <div class="mkpi"><div class="l">ประมาณระยะจุดรั่วจาก RTU</div><div class="v mono" style="font-size:12.5px;">${d.a.proximityEstimate || '— (ยังไม่พบสัญญาณให้ประมาณ)'}</div></div>
     <!--<div class="mkpi"><div class="l">R_eff (System Resistance)</div><div class="v mono">${d.a.rEffMedian!=null? d.a.rEffMedian.toFixed(4): '—'}</div></div>-->
@@ -827,7 +820,7 @@ function openModal(code){
     ]},
     options:chartOpts(true)
   });
-/*
+
   const cusumLabels = Array.from({length:d.a.cs.cPlusSeries.length},(_,i)=>`D${d.a.baseWinLen+i+1}`);
   if(cusumChart) cusumChart.destroy();
   cusumChart = new Chart(document.getElementById('chartCusum'), {
@@ -838,7 +831,7 @@ function openModal(code){
     ]},
     options:chartOpts(true)
   });
-*/
+
   const hasHourly = !!(d.hourly.flow && d.hourly.flow.length);
   const hourlyCanvas = document.getElementById('chartHourly');
   const hourlyNoteEl = document.getElementById('hourlyNote');
