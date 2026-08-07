@@ -826,7 +826,7 @@ function openModal(code){
     ]},
     options:chartOpts(true)
   });
-
+/*
   const cusumLabels = Array.from({length:d.a.cs.cPlusSeries.length},(_,i)=>`D${d.a.baseWinLen+i+1}`);
   if(cusumChart) cusumChart.destroy();
   cusumChart = new Chart(document.getElementById('chartCusum'), {
@@ -837,7 +837,7 @@ function openModal(code){
     ]},
     options:chartOpts(true)
   });
-
+*/
   const hasHourly = !!(d.hourly.flow && d.hourly.flow.length);
   const hourlyCanvas = document.getElementById('chartHourly');
   const hourlyNoteEl = document.getElementById('hourlyNote');
