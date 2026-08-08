@@ -92,7 +92,9 @@
 
   /* KPI row */
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0;}
-  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s,transform .1s;}
+  .kpi:hover{border-color:var(--teal);}
+  .kpi.active{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset;}
   .kpi .label{font-size:11.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
   .kpi .val{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;}
   .kpi .val small{font-size:13px;color:var(--text-dim);font-weight:500;margin-left:4px;}
@@ -105,10 +107,30 @@
   .section-title{display:flex;align-items:center;gap:10px;margin:30px 0 12px;}
   .section-title h2{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:0;}
   .section-title .line{flex:1;height:1px;background:var(--border);}
+  .help-hint{font-size:12.5px;color:var(--text-dim);margin:2px 0 18px;display:flex;align-items:center;gap:6px;}
+
+  .search-box{position:relative;max-width:320px;margin:0 0 16px;}
+  .search-box input{
+    width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:9px 32px 9px 34px;font-size:13.5px;color:var(--text);font-family:inherit;outline:none;
+    transition:border-color .15s;
+  }
+  .search-box input:focus{border-color:var(--teal);}
+  .search-box input::placeholder{color:var(--text-faint);}
+  .search-box .icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:13px;pointer-events:none;}
+  .search-box .clear-btn{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-faint);
+    font-size:15px;line-height:1;padding:2px 4px;display:none;
+  }
+  .search-box .clear-btn:hover{color:var(--text);}
+  .search-box.has-value .clear-btn{display:block;}
 
   /* priority table */
   table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:13px;}
   thead th{text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;font-weight:600;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--border);}
+  thead th.sortable{cursor:pointer;user-select:none;}
+  thead th.sortable:hover{color:var(--text);}
+  thead th .sort-ind{display:inline-block;width:10px;font-size:9px;opacity:.6;}
   tbody td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr{cursor:pointer;transition:background .15s;}
@@ -175,12 +197,27 @@
 
   <div class="banner" id="banner">⏳ <div>กำลังพยายามโหลด <code class="mono" id="csvPathLabel">flow_log.csv</code> ...</div></div>
 
+  <div class="search-box" id="searchBox">
+    <span class="icon">🔎</span>
+    <input type="text" id="rtuSearchInput" placeholder="ค้นหา RTU / DM..." oninput="setSearchQuery(this.value)">
+    <span class="clear-btn" onclick="clearSearchQuery()">✕</span>
+  </div>
+
+  <div class="help-hint">💡 พิมพ์ค้นหา RTU/DM ด้านบน หรือคลิกการ์ดสถานะเพื่อกรอง (คลิกซ้ำเพื่อล้าง) · คลิกหัวตารางเพื่อเรียงลำดับ (คลิกซ้ำเพื่อสลับทิศทางมาก↔น้อย)</div>
+
   <div class="kpis" id="kpis"></div>
+  <div id="statusFilterNote" style="display:none;font-size:12.5px;color:var(--teal);margin:-10px 0 16px;"></div>
 
   <div class="section-title"><h2>รายการเฝ้าระวังตามความรุนแรง</h2><div class="line"></div></div>
   <table>
     <thead><tr>
-      <th>สถานะ</th><th>DM</th><th>MNF ปัจจุบัน</th><th>MNF ฐาน (Baseline)</th><th>ส่วนต่าง</th><th>ปริมาณสูญเสียประเมิน</th><th>รูปแบบ</th>
+      <th class="sortable" data-key="status" onclick="sortPriorityBy('status')">สถานะ <span class="sort-ind"></span></th>
+      <th class="sortable" data-key="code" onclick="sortPriorityBy('code')">DM <span class="sort-ind"></span></th>
+      <th class="sortable" data-key="currentMnf" onclick="sortPriorityBy('currentMnf')">MNF ปัจจุบัน <span class="sort-ind"></span></th>
+      <th class="sortable" data-key="mean" onclick="sortPriorityBy('mean')">MNF ฐาน (Baseline) <span class="sort-ind"></span></th>
+      <th class="sortable" data-key="excessPerHour" onclick="sortPriorityBy('excessPerHour')">ส่วนต่าง <span class="sort-ind"></span></th>
+      <th class="sortable" data-key="estLossPerDay" onclick="sortPriorityBy('estLossPerDay')">ปริมาณสูญเสียประเมิน <span class="sort-ind"></span></th>
+      <th>รูปแบบ</th>
     </tr></thead>
     <tbody id="priorityBody"></tbody>
   </table>
@@ -207,11 +244,11 @@
       <div class="note">เส้นทึบ = MNF จริงรายวัน · เส้นประฟ้า = ค่าเฉลี่ยฐาน · เส้นประแดง = ค่าเฉลี่ยฐาน + 2SD (จุดตัดที่คงอยู่ต่อเนื่องหลายวัน คือสัญญาณรั่วที่น่าเชื่อถือ)</div>
     </div>
 
-    <div class="chart-box">
+    <!--<div class="chart-box">
       <div class="ct">CUSUM — การสะสมของส่วนเบี่ยงเบนจากฐาน <span id="mkBadge" class="mono" style="font-size:11px;font-weight:400;"></span></div>
       <canvas id="chartCusum"></canvas>
       <div class="note" id="cusumNote"></div>
-    </div>
+    </div>-->
 
     <div class="chart-box">
       <div class="ct">รูปแบบการไหลรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
@@ -222,7 +259,7 @@
     <div class="chart-box">
       <div class="ct">แรงดันน้ำรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
       <canvas id="chartPressure"></canvas>
-      <div class="note" id="pressureNote">ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกฮวบพร้อมกับ flow พุ่งค้าง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว</div>
+      <div class="note" id="pressureNote">ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว</div>
     </div>
   </div>
 </div>
@@ -492,7 +529,7 @@ function seriesFromCsv(rows){
 const CASE_META = {
   A: {label:'ท่อแตกรั่ว (Pipe Burst)', icon:'🔴', cls:'alert'},
   B: {label:'รั่วซึมสะสม (Developing Leak)', icon:'🟠', cls:'watch'},
-  C: {label:'ใช้น้ำตามพฤติกรรม (High Usage)', icon:'🟡', cls:'ok'},
+  C: {label:'ไม่พบ MNF ผิดปกติเชิงสถิติ', icon:'🟡', cls:'ok'},
   N: {label:'ไม่มีข้อมูล (RTU เสีย/สื่อสารขาด)', icon:'⚫', cls:'no_data'},
 };
 
@@ -504,6 +541,7 @@ function summaryFromCsv(rows){
       name: r.dma_name || r.dma_code,
       status: r.status, case: r.case, caseReason: r.case_reason,
       noDataDays: (r.no_data_days!==undefined && r.no_data_days!=='') ? Number(r.no_data_days) : null,
+      mnfStart: r.mnf_start || null, mnfEnd: r.mnf_end || null,
       currentMnf: Number(r.current_mnf),
       mean: Number(r.baseline_mean),
       sd: Number(r.baseline_sd),
@@ -562,7 +600,7 @@ let data = [];
 const STATUS_LABEL = {alert:'แจ้งเตือน', watch:'เฝ้าระวัง', ok:'ปกติ', no_data:'ไม่มีข้อมูล'};
 const HOURLY_NOTE_DEFAULT = 'แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU';
 const HOURLY_NOTE_EMPTY = 'ไม่มีข้อมูลราย 15 นาทีสำหรับจุดวัด DM นี้ — สถานะ "ปกติ" จึงไม่ถูกส่งเข้า flow_log.csv เพื่อลดขนาดไฟล์ (ดูกราฟรายวันได้เฉพาะ DMA ที่อยู่ในสถานะเฝ้าระวัง/แจ้งเตือน — MNF/CUSUM ด้านบนยังใช้งานได้ตามปกติ)';
-const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกฮวบพร้อมกับ flow พุ่งค้าง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว';
+const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว';
 const PRESSURE_NOTE_EMPTY = 'ไม่มีข้อมูลแรงดันราย 15 นาทีสำหรับจุดวัด DM นี้ (เหตุผลเดียวกับกราฟการไหลด้านบน)';
 
 function renderAll(){
@@ -594,7 +632,7 @@ async function refreshFromCsv(isFirstLoad){
           mnfSeries: sr.mnfSeries, totalSeries: sr.totalSeries,
           mean: s.mean, sd: s.sd, threshold: s.threshold, watchThreshold: s.watchThreshold,
           status: s.status, case: s.case, caseReason: s.caseReason, currentMnf: s.currentMnf,
-          noDataDays: s.noDataDays,
+          noDataDays: s.noDataDays, mnfStart: s.mnfStart, mnfEnd: s.mnfEnd,
           excessPerHour: s.excessPerHour, estLossPerDay: s.estLossPerDay, baseWinLen: s.baseWinLen,
           mk: s.mk,
           cs: {cPlusSeries: sr.cPlusSeries, hAbs: s.cusumH, breached: s.cusumBreached, breachIndex: breachIdx},
@@ -637,6 +675,41 @@ if(AUTO_REFRESH_ENABLED){
   setInterval(()=>refreshFromCsv(false), REFRESH_MINUTES*60*1000);
 }
 
+let activeStatusFilter = null;   // null = แสดงทุกสถานะ, ไม่ก็เป็น 'alert'/'watch'/'ok'/'no_data'
+let searchQuery = '';            // ค้นหาจากรหัส/ชื่อ RTU — ทำงานร่วมกับ activeStatusFilter แบบ AND
+
+function setStatusFilter(status){
+  activeStatusFilter = (activeStatusFilter === status) ? null : status;   // กดซ้ำอันเดิม = ล้าง filter
+  renderKpis();
+  renderCards();
+  renderPriority();
+}
+
+function setSearchQuery(value){
+  searchQuery = (value || '').trim().toLowerCase();
+  document.getElementById('searchBox').classList.toggle('has-value', searchQuery.length>0);
+  renderCards();
+  renderPriority();
+}
+
+function clearSearchQuery(){
+  document.getElementById('rtuSearchInput').value = '';
+  setSearchQuery('');
+}
+
+function matchesFilters(d){
+  if(activeStatusFilter && d.a.status!==activeStatusFilter) return false;
+  if(searchQuery && !(d.code.toLowerCase().includes(searchQuery) || (d.name||'').toLowerCase().includes(searchQuery))) return false;
+  return true;
+}
+
+function emptyFilterMessage(){
+  const parts = [];
+  if(activeStatusFilter) parts.push(`สถานะ "${STATUS_LABEL[activeStatusFilter]}"`);
+  if(searchQuery) parts.push(`คำค้นหา "${searchQuery}"`);
+  return parts.length ? `ไม่พบ DM ที่ตรงกับ ${parts.join(' และ ')}` : 'ไม่มีข้อมูล DM';
+}
+
 function renderKpis(){
   const alertCount = data.filter(d=>d.a.status==='alert').length;
   const watchCount = data.filter(d=>d.a.status==='watch').length;
@@ -646,19 +719,24 @@ function renderKpis(){
   const totalToday = data.reduce((s,d)=>s+(d.a.totalSeries[d.a.totalSeries.length-1]||0),0);
 
   const kpis = [
-    {label:'DM ทั้งหมด', val:data.length, cls:''},
-    {label:'สถานะแจ้งเตือน', val:alertCount, cls:'alert'},
-    {label:'สถานะเฝ้าระวัง', val:watchCount, cls:'watch'},
-    {label:'สถานะปกติ', val:okCount, cls:'ok'},
-    {label:'ไม่มีข้อมูล', val:noDataCount, cls:'no_data'},
-    {label:'ปริมาณจ่ายรวมวันนี้', val:Math.round(totalToday).toLocaleString(), unit:'m³', cls:''},
-    {label:'สูญเสียประเมินรวม/วัน', val:Math.round(totalLoss).toLocaleString(), unit:'m³', cls: totalLoss>0?'alert':''},
+    {label:'DM ทั้งหมด', val:data.length, cls:'', status:null},
+    {label:'สถานะแจ้งเตือน', val:alertCount, cls:'alert', status:'alert'},
+    {label:'สถานะเฝ้าระวัง', val:watchCount, cls:'watch', status:'watch'},
+    {label:'สถานะปกติ', val:okCount, cls:'ok', status:'ok'},
+    {label:'ไม่มีข้อมูล', val:noDataCount, cls:'no_data', status:'no_data'},
+    // {label:'ปริมาณจ่ายรวมวันนี้', val:Math.round(totalToday).toLocaleString(), unit:'m³', cls:''},
+    // {label:'สูญเสียประเมินรวม/วัน', val:Math.round(totalLoss).toLocaleString(), unit:'m³', cls: totalLoss>0?'alert':''},
   ];
   document.getElementById('kpis').innerHTML = kpis.map(k=>`
-    <div class="kpi ${k.cls}">
+    <div class="kpi ${k.cls} ${activeStatusFilter===k.status?'active':''}" onclick="setStatusFilter(${k.status===null?'null':`'${k.status}'`})" title="คลิกเพื่อกรองเฉพาะสถานะนี้ (คลิกซ้ำเพื่อล้าง)">
       <div class="label">${k.label}</div>
       <div class="val mono">${k.val}${k.unit?`<small>${k.unit}</small>`:''}</div>
     </div>`).join('');
+  const filterNote = document.getElementById('statusFilterNote');
+  if(filterNote){
+    filterNote.style.display = activeStatusFilter ? '' : 'none';
+    filterNote.textContent = activeStatusFilter ? `🔍 กำลังกรองเฉพาะ "${STATUS_LABEL[activeStatusFilter]}" — คลิกการ์ดเดิมอีกครั้งเพื่อล้างตัวกรอง` : '';
+  }
 }
 
 function sparklinePath(series, w=200, h=36){
@@ -672,14 +750,54 @@ function sparklinePath(series, w=200, h=36){
   return pts.join(' ');
 }
 
+let prioritySort = {key: null, dir: 1};   // key=null = ค่าเริ่มต้น (เรียงตามความรุนแรง+ส่วนต่างเหมือนเดิม)
+
+function sortPriorityBy(key){
+  if(prioritySort.key === key){
+    prioritySort.dir *= -1;               // กดซ้ำคอลัมน์เดิม = สลับทิศ (มาก→น้อย / น้อย→มาก)
+  } else {
+    prioritySort.key = key;
+    prioritySort.dir = 1;
+  }
+  renderPriority();
+}
+
+function updateSortIndicators(){
+  document.querySelectorAll('th.sortable').forEach(th=>{
+    const ind = th.querySelector('.sort-ind');
+    if(!ind) return;
+    ind.textContent = (th.dataset.key===prioritySort.key) ? (prioritySort.dir>0 ? '▲':'▼') : '';
+  });
+}
+
 function renderPriority(){
-  const sorted = [...data].sort((a,b)=>{
-    const order = {alert:0, watch:1, ok:2, no_data:3};
-    if(order[a.a.status]!==order[b.a.status]) return order[a.a.status]-order[b.a.status];
-    return b.a.excessPerHour - a.a.excessPerHour;
-  }).filter(d=>d.a.status!=='ok' && d.a.status!=='no_data').concat(sorted_ok()).concat(sorted_no_data());
-  function sorted_ok(){ return [...data].filter(d=>d.a.status==='ok').sort((a,b)=>b.a.excessPerHour-a.a.excessPerHour); }
-  function sorted_no_data(){ return [...data].filter(d=>d.a.status==='no_data'); }
+  const STATUS_ORDER = {alert:0, watch:1, ok:2, no_data:3};
+  const cmp = {
+    status: (a,b)=> STATUS_ORDER[a.a.status]-STATUS_ORDER[b.a.status] || (b.a.excessPerHour-a.a.excessPerHour),
+    code: (a,b)=> a.code.localeCompare(b.code),
+    currentMnf: (a,b)=> a.a.currentMnf-b.a.currentMnf,
+    mean: (a,b)=> a.a.mean-b.a.mean,
+    excessPerHour: (a,b)=> a.a.excessPerHour-b.a.excessPerHour,
+    estLossPerDay: (a,b)=> a.a.estLossPerDay-b.a.estLossPerDay,
+  };
+
+  const filteredData = data.filter(matchesFilters);
+  const activeRows = filteredData.filter(d=>d.a.status!=='no_data');
+  const noDataRows = filteredData.filter(d=>d.a.status==='no_data');
+
+  if(prioritySort.key && cmp[prioritySort.key]){
+    activeRows.sort((a,b)=> prioritySort.dir * cmp[prioritySort.key](a,b));
+  } else {
+    activeRows.sort(cmp.status);
+  }
+  const sorted = activeRows.concat(noDataRows);
+  updateSortIndicators();
+
+  if(!sorted.length){
+    document.getElementById('priorityBody').innerHTML =
+      `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-dim);">${emptyFilterMessage()}</td></tr>`;
+    return;
+  }
 
   document.getElementById('priorityBody').innerHTML = sorted.map(d=>{
     if(d.a.status==='no_data'){
@@ -708,7 +826,12 @@ function renderPriority(){
 }
 
 function renderCards(){
-  document.getElementById('cardGrid').innerHTML = data.map(d=>{
+  const filteredData = data.filter(matchesFilters);
+  if(!filteredData.length){
+    document.getElementById('cardGrid').innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-dim);">${emptyFilterMessage()}</div>`;
+    return;
+  }
+  document.getElementById('cardGrid').innerHTML = filteredData.map(d=>{
     if(d.a.status==='no_data'){
       const daysTxt = d.a.noDataDays!=null? `${d.a.noDataDays.toFixed(1)} วัน` : '—';
       return `<div class="card" onclick="openModal('${d.code}')">
@@ -720,6 +843,7 @@ function renderCards(){
         <div class="metrics">
           <span style="color:var(--gray);">ไม่มีข้อมูลมา ${daysTxt}</span>
         </div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Night Flow ที่ตั้งไว้: ${d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : '—'}</div>
       </div>`;
     }
     const spark = sparklinePath(d.a.totalSeries.slice(-14),200,36);
@@ -735,6 +859,7 @@ function renderCards(){
         <span>MNF ปัจจุบัน <span class="mnf">${d.a.currentMnf.toFixed(1)}</span></span>
         <span>ฐาน <span class="mnf">${d.a.mean.toFixed(1)}</span></span>
       </div>
+      <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Night Flow: ${d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : '—'}</div>
     </div>`;
   }).join('');
 }
@@ -752,6 +877,7 @@ function openModal(code){
     // ไม่มีข้อมูลราย 15 นาที/รายวันให้ RTU นี้เลย (ถูกตัดออกจาก compute_metrics ตั้งแต่ต้น) — แสดงข้อความ
     // อธิบายตรงๆ แทนที่จะพยายามวาดกราฟจากข้อมูลว่างเปล่า แล้วเคลียร์กราฟเก่าที่อาจค้างจาก DMA ก่อนหน้าทิ้ง
     const daysTxt = d.a.noDataDays!=null ? `${d.a.noDataDays.toFixed(1)} วัน` : 'ไม่ทราบจำนวนวันแน่ชัด';
+    const windowTxt = d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : 'ไม่ทราบ';
     document.getElementById('mKpis').innerHTML = `
       <div class="mkpi" style="grid-column:1/-1;">
         <div class="l">สถานะ</div>
@@ -759,18 +885,19 @@ function openModal(code){
           ⚫ ไม่มีข้อมูลจาก RTU นี้มา ${daysTxt} (flow = 0 ติดต่อกัน) — สงสัย RTU เสีย/สื่อสารขาด ไม่ได้คำนวณ MNF/CUSUM ให้
           เนื่องจากไม่มีข้อมูลจริงให้วิเคราะห์ กรุณาตรวจสอบ RTU ในสนาม
         </div>
-      </div>`;
+      </div>
+      <div class="mkpi"><div class="l">ช่วง Night Flow (MNF Window) ที่ตั้งไว้</div><div class="v mono">${windowTxt}</div></div>`;
     document.getElementById('mHardBanner').style.display = 'none';
 
     [mnfChart, cusumChart, hourlyChart, pressureChart].forEach(c => { if(c) c.destroy(); });
     mnfChart = cusumChart = hourlyChart = pressureChart = null;
-    ['chartMnf','chartCusum','chartHourly','chartPressure'].forEach(id => {
+    ['chartMnf','chartHourly','chartPressure'].forEach(id => {   // chartCusum comment ไว้ก่อน (ดู chart-box ที่ comment ไว้ด้านบน)
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('hourlyNote').textContent = HOURLY_NOTE_EMPTY;
     document.getElementById('pressureNote').textContent = PRESSURE_NOTE_EMPTY;
-    document.getElementById('cusumNote').textContent = 'ไม่มีข้อมูลให้คำนวณ CUSUM';
-    document.getElementById('mkBadge').textContent = '';
+    // document.getElementById('cusumNote').textContent = 'ไม่มีข้อมูลให้คำนวณ CUSUM';
+    // document.getElementById('mkBadge').textContent = '';
 
     document.getElementById('overlay').classList.add('open');
     return;
@@ -778,12 +905,13 @@ function openModal(code){
 
   document.getElementById('mKpis').innerHTML = `
     <div class="mkpi"><div class="l">MNF ปัจจุบัน</div><div class="v mono">${d.a.currentMnf.toFixed(1)} m³/hr</div></div>
+    <div class="mkpi"><div class="l">ช่วง Night Flow (MNF Window)</div><div class="v mono">${d.a.mnfStart && d.a.mnfEnd ? `${d.a.mnfStart}–${d.a.mnfEnd}` : '—'}</div></div>
     <div class="mkpi"><div class="l">ค่าเฉลี่ยฐาน</div><div class="v mono">${d.a.mean.toFixed(1)} m³/hr</div></div>
     <div class="mkpi"><div class="l">เกณฑ์แจ้งเตือน (+2SD)</div><div class="v mono">${d.a.threshold.toFixed(1)} m³/hr</div></div>
     <div class="mkpi"><div class="l">สูญเสียประเมิน</div><div class="v mono">${d.a.case==='C'?'—':Math.round(d.a.estLossPerDay)+' m³/วัน'}</div></div>
     <div class="mkpi"><div class="l">Mann-Kendall (10 วัน)</div><div class="v mono" style="font-size:13px;">${d.a.mk.trend}</div></div>
     <div class="mkpi"><div class="l">CUSUM</div><div class="v mono" style="font-size:13px;">${d.a.cs.breached?`ตัดเกณฑ์ที่วันหลัง baseline #${d.a.cs.breachIndex+1}`:'ยังไม่ตัดเกณฑ์'}</div></div>
-    <div class="mkpi"><div class="l">Sustained Flow วันนี้</div><div class="v mono" style="font-size:13px;">${d.a.sustainedRunIntervals} จาก 96 intervals${d.a.sustainedFlowBreach?' ⚠️':''}</div></div>
+    <!--<div class="mkpi"><div class="l">Sustained Flow วันนี้</div><div class="v mono" style="font-size:13px;">${d.a.sustainedRunIntervals} จาก 96 intervals${d.a.sustainedFlowBreach?' ⚠️':''}</div></div>-->
     <div class="mkpi"><div class="l">แรงดันตกยืนยัน</div><div class="v mono" style="font-size:13px;">${d.a.pressureDropConfirmed?'ใช่ — ตกร่วมกับ flow สูง':'ไม่พบ'}</div></div>
     <div class="mkpi"><div class="l">ประมาณระยะจุดรั่วจาก RTU</div><div class="v mono" style="font-size:12.5px;">${d.a.proximityEstimate || '— (ยังไม่พบสัญญาณให้ประมาณ)'}</div></div>
     <!--<div class="mkpi"><div class="l">R_eff (System Resistance)</div><div class="v mono">${d.a.rEffMedian!=null? d.a.rEffMedian.toFixed(4): '—'}</div></div>-->
@@ -796,16 +924,17 @@ function openModal(code){
   } else {
     hardBanner.style.display = 'none';
   }
-  document.getElementById('mkBadge').textContent = d.a.mk.significant ? `(Z=${d.a.mk.Z.toFixed(2)}, มีนัยสำคัญ)` : `(Z=${d.a.mk.Z.toFixed(2)}, ยังไม่ชัดเจน)`;
-  document.getElementById('mkBadge').style.color = d.a.mk.significant ? '#e8a33d' : '#5b6b85';
-  document.getElementById('cusumNote').textContent =
-    `เส้นทึบ = C+ (การไต่ขึ้นสะสม) · เส้นประ = จุดตัดเกณฑ์ (h = 4×SD) · เริ่มนับหลังช่วง baseline (${d.a.baseWinLen} วันแรก) — ` +
-    (d.a.cusumRecentBreach ? 'พบจุดที่เส้นสะสมทะลุเกณฑ์ในช่วงล่าสุด ชี้ว่าฐานการไหลขยับขึ้นถาวร ไม่ใช่ความผันผวนชั่วคราว'
-      : d.a.cs.breached ? 'เคยทะลุเกณฑ์ในอดีตแต่ไม่ใช่ช่วงล่าสุด (มักมาจาก event ใช้น้ำชั่วคราวที่จบไปแล้ว) จึงไม่ถูกนับเป็นสถานะแจ้งเตือนตอนนี้'
-      : 'ยังไม่พบจุดที่ทะลุเกณฑ์ในช่วงข้อมูลปัจจุบัน') +
-    (d.a.cusumStepRapid ? ' · เส้นสะสมพุ่งขึ้นเร็ว (≤3 วัน) = ลักษณะ burst ฉับพลัน ไม่ใช่รั่วค่อยๆ ไต่' : '');
+  // mkBadge/cusumNote อยู่ใน CUSUM chart-box ที่ comment ไว้ด้านบน — comment ตามไปด้วยกัน
+  // document.getElementById('mkBadge').textContent = d.a.mk.significant ? `(Z=${d.a.mk.Z.toFixed(2)}, มีนัยสำคัญ)` : `(Z=${d.a.mk.Z.toFixed(2)}, ยังไม่ชัดเจน)`;
+  // document.getElementById('mkBadge').style.color = d.a.mk.significant ? '#e8a33d' : '#5b6b85';
+  // document.getElementById('cusumNote').textContent =
+  //   `เส้นทึบ = C+ (การไต่ขึ้นสะสม) · เส้นประ = จุดตัดเกณฑ์ (h = 4×SD) · เริ่มนับหลังช่วง baseline (${d.a.baseWinLen} วันแรก) — ` +
+  //   (d.a.cusumRecentBreach ? 'พบจุดที่เส้นสะสมทะลุเกณฑ์ในช่วงล่าสุด ชี้ว่าฐานการไหลขยับขึ้นถาวร ไม่ใช่ความผันผวนชั่วคราว'
+  //     : d.a.cs.breached ? 'เคยทะลุเกณฑ์ในอดีตแต่ไม่ใช่ช่วงล่าสุด (มักมาจาก event ใช้น้ำชั่วคราวที่จบไปแล้ว) จึงไม่ถูกนับเป็นสถานะแจ้งเตือนตอนนี้'
+  //     : 'ยังไม่พบจุดที่ทะลุเกณฑ์ในช่วงข้อมูลปัจจุบัน') +
+  //   (d.a.cusumStepRapid ? ' · เส้นสะสมพุ่งขึ้นเร็ว (≤3 วัน) = ลักษณะ burst ฉับพลัน ไม่ใช่รั่วค่อยๆ ไต่' : '');
 
-  ['chartMnf','chartCusum','chartHourly','chartPressure'].forEach(id => {
+  ['chartMnf','chartHourly','chartPressure'].forEach(id => {   // chartCusum comment ไว้ก่อน
     document.getElementById(id).style.display = '';
   });
 
@@ -821,16 +950,17 @@ function openModal(code){
     options:chartOpts(true)
   });
 
-  const cusumLabels = Array.from({length:d.a.cs.cPlusSeries.length},(_,i)=>`D${d.a.baseWinLen+i+1}`);
-  if(cusumChart) cusumChart.destroy();
-  cusumChart = new Chart(document.getElementById('chartCusum'), {
-    type:'line',
-    data:{ labels:cusumLabels, datasets:[
-      {label:'C+ (สะสมขาขึ้น)', data:d.a.cs.cPlusSeries, borderColor:'#e8a33d', backgroundColor:'rgba(232,163,61,.12)', fill:true, borderWidth:2, pointRadius:0, tension:.2},
-      {label:'เกณฑ์ตัด (h)', data:cusumLabels.map(()=>d.a.cs.hAbs), borderColor:'#e5484d', borderDash:[4,4], borderWidth:1.5, pointRadius:0},
-    ]},
-    options:chartOpts(true)
-  });
+  // CUSUM chart comment ไว้ก่อน (ดู chart-box ที่ comment ไว้ด้านบนคู่กัน)
+  // const cusumLabels = Array.from({length:d.a.cs.cPlusSeries.length},(_,i)=>`D${d.a.baseWinLen+i+1}`);
+  // if(cusumChart) cusumChart.destroy();
+  // cusumChart = new Chart(document.getElementById('chartCusum'), {
+  //   type:'line',
+  //   data:{ labels:cusumLabels, datasets:[
+  //     {label:'C+ (สะสมขาขึ้น)', data:d.a.cs.cPlusSeries, borderColor:'#e8a33d', backgroundColor:'rgba(232,163,61,.12)', fill:true, borderWidth:2, pointRadius:0, tension:.2},
+  //     {label:'เกณฑ์ตัด (h)', data:cusumLabels.map(()=>d.a.cs.hAbs), borderColor:'#e5484d', borderDash:[4,4], borderWidth:1.5, pointRadius:0},
+  //   ]},
+  //   options:chartOpts(true)
+  // });
 
   const hasHourly = !!(d.hourly.flow && d.hourly.flow.length);
   const hourlyCanvas = document.getElementById('chartHourly');
