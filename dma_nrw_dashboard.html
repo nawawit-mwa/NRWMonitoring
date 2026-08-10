@@ -132,6 +132,15 @@
   .search-box .clear-btn:hover{color:var(--text);}
   .search-box.has-value .clear-btn{display:block;}
 
+  .region-bar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;}
+  .region-pill{
+    background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:7px 16px;
+    font-size:12.5px;font-weight:600;color:var(--text-dim);cursor:pointer;user-select:none;
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  .region-pill:hover{border-color:var(--teal);color:var(--text);}
+  .region-pill.active{background:var(--teal);border-color:var(--teal);color:#08131a;}
+
   /* priority table */
   table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:13px;}
   thead th{text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;font-weight:600;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--border);}
@@ -213,6 +222,8 @@
   </div>
 
   <div class="help-hint">💡 พิมพ์ค้นหา RTU/DM ด้านบน หรือคลิกการ์ดสถานะเพื่อกรอง (คลิกซ้ำเพื่อล้าง) · คลิกหัวตารางเพื่อเรียงลำดับ (คลิกซ้ำเพื่อสลับทิศทางมาก↔น้อย) · ผู้ใช้งานสามารถกำหนดรายการ RTU ที่มีหมายเหตุ ได้ตาม <a href="https://docs.google.com/spreadsheets/d/1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">LINK นี้</a></div>
+
+  <div class="region-bar" id="regionBar"></div>
 
   <div class="kpis" id="kpis"></div>
   <div id="statusFilterNote" style="display:none;font-size:12.5px;color:var(--teal);margin:-10px 0 16px;"></div>
@@ -651,6 +662,7 @@ const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ 
 const PRESSURE_NOTE_EMPTY = 'ไม่มีข้อมูลแรงดันราย 15 นาทีสำหรับจุดวัด DM นี้ (เหตุผลเดียวกับกราฟการไหลด้านบน)';
 
 function renderAll(){
+  renderRegionBar();
   renderKpis();
   renderPriority();
   renderCards();
@@ -725,8 +737,39 @@ if(AUTO_REFRESH_ENABLED){
   setInterval(()=>refreshFromCsv(false), REFRESH_MINUTES*60*1000);
 }
 
-let activeStatusFilter = null;   // null = แสดงทุกสถานะ, ไม่ก็เป็น 'alert'/'watch'/'ok'/'no_data'
+let activeStatusFilter = null;   // null = แสดงทุกสถานะ, ไม่ก็เป็น 'alert'/'watch'/'ok'/'no_data'/'remark'
 let searchQuery = '';            // ค้นหาจากรหัส/ชื่อ RTU — ทำงานร่วมกับ activeStatusFilter แบบ AND
+
+const REGION_GROUPS = {   // จับคู่ DM_ID/RTU_ID ด้วย prefix — แก้ list นี้ที่เดียว มีผลทั้งปุ่ม กรอง และนับการ์ด
+  'ทั้งหมด': [],
+  'ภาค 1': ['DM-05', 'DM-07', 'DM-13', 'DM-17'],
+  'ภาค 2': ['DM-03', 'DM-06', 'DM-12'],
+  'ภาค 3': ['DM-15', 'DM-16', 'DM-53', 'DM-55'],
+  'ภาค 4': ['DM-01', 'DM-02', 'DM-11', 'DM-14'],
+  'ภาค 5': ['DM-04', 'DM-54', 'DM-56'],
+};
+let activeRegion = 'ทั้งหมด';   // ค่าเริ่มต้น active ตามสเปก
+
+function matchesRegion(d){
+  const prefixes = REGION_GROUPS[activeRegion];
+  if(!prefixes || !prefixes.length) return true;   // "ทั้งหมด" = ไม่กรอง
+  return prefixes.some(p => d.code.startsWith(p));
+}
+
+function setRegion(region){
+  if(!(region in REGION_GROUPS)) return;
+  activeRegion = region;
+  renderRegionBar();
+  renderKpis();
+  renderCards();
+  renderPriority();
+}
+
+function renderRegionBar(){
+  document.getElementById('regionBar').innerHTML = Object.keys(REGION_GROUPS).map(region => `
+    <div class="region-pill ${activeRegion===region?'active':''}" onclick="setRegion('${region}')">${region}</div>
+  `).join('');
+}
 
 function setStatusFilter(status){
   activeStatusFilter = (activeStatusFilter === status) ? null : status;   // กดซ้ำอันเดิม = ล้าง filter
@@ -748,6 +791,7 @@ function clearSearchQuery(){
 }
 
 function matchesFilters(d){
+  if(!matchesRegion(d)) return false;
   if(activeStatusFilter && dStatus(d)!==activeStatusFilter) return false;
   if(searchQuery && !(d.code.toLowerCase().includes(searchQuery) || (d.name||'').toLowerCase().includes(searchQuery))) return false;
   return true;
@@ -755,21 +799,23 @@ function matchesFilters(d){
 
 function emptyFilterMessage(){
   const parts = [];
+  if(activeRegion !== 'ทั้งหมด') parts.push(`เขต "${activeRegion}"`);
   if(activeStatusFilter) parts.push(`สถานะ "${STATUS_LABEL[activeStatusFilter]}"`);
   if(searchQuery) parts.push(`คำค้นหา "${searchQuery}"`);
   return parts.length ? `ไม่พบ DM ที่ตรงกับ ${parts.join(' และ ')}` : 'ไม่มีข้อมูล DM';
 }
 
 function renderKpis(){
-  const remarkCount = data.filter(d=>d.a.hasRemark).length;
-  const alertCount = data.filter(d=>!d.a.hasRemark && d.a.status==='alert').length;
-  const watchCount = data.filter(d=>!d.a.hasRemark && d.a.status==='watch').length;
-  const okCount = data.length-alertCount-watchCount-remarkCount;
-  const totalLoss = data.reduce((s,d)=>s+ (d.a.status!=='ok' && d.a.status!=='no_data'? d.a.estLossPerDay:0),0);
-  const totalToday = data.reduce((s,d)=>s+(d.a.totalSeries[d.a.totalSeries.length-1]||0),0);
+  const regionData = data.filter(matchesRegion);
+  const remarkCount = regionData.filter(d=>d.a.hasRemark).length;
+  const alertCount = regionData.filter(d=>!d.a.hasRemark && d.a.status==='alert').length;
+  const watchCount = regionData.filter(d=>!d.a.hasRemark && d.a.status==='watch').length;
+  const okCount = regionData.length-alertCount-watchCount-remarkCount;
+  const totalLoss = regionData.reduce((s,d)=>s+ (d.a.status!=='ok' && d.a.status!=='no_data'? d.a.estLossPerDay:0),0);
+  const totalToday = regionData.reduce((s,d)=>s+(d.a.totalSeries[d.a.totalSeries.length-1]||0),0);
 
   const kpis = [
-    {label:'DM ทั้งหมด', val:data.length, cls:'', status:null},
+    {label:'DM ทั้งหมด', val:regionData.length, cls:'', status:null},
     {label:'สถานะแจ้งเตือน', val:alertCount, cls:'alert', status:'alert'},
     {label:'สถานะเฝ้าระวัง', val:watchCount, cls:'watch', status:'watch'},
     {label:'สถานะปกติ', val:okCount, cls:'ok', status:'ok'},
