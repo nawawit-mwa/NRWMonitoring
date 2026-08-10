@@ -759,6 +759,7 @@ function matchesRegion(d){
 function setRegion(region){
   if(!(region in REGION_GROUPS)) return;
   activeRegion = region;
+  prioritySort = {key: 'code', dir: 1};   // กดกรองตามกลุ่มแล้ว เรียง DM จากน้อยไปมากให้อัตโนมัติ
   renderRegionBar();
   renderKpis();
   renderCards();
@@ -922,7 +923,7 @@ function renderPriority(){
 }
 
 function renderCards(){
-  const filteredData = data.filter(matchesFilters);
+  const filteredData = data.filter(matchesFilters).sort((a,b)=>a.code.localeCompare(b.code));
   if(!filteredData.length){
     document.getElementById('cardGrid').innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-dim);">${emptyFilterMessage()}</div>`;
     return;
