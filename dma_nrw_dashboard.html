@@ -841,7 +841,7 @@ function renderKpis(){
   const totalToday = regionData.reduce((s,d)=>s+(d.a.totalSeries[d.a.totalSeries.length-1]||0),0);
 
   const kpis = [
-    {label:'DM ทั้งหมด', val:regionData.length, cls:'', status:null},
+    {label:'DM ที่ตรวจสอบ', val:regionData.length, cls:'', status:null},
     {label:'สถานะแจ้งเตือน', val:alertCount, cls:'alert', status:'alert'},
     {label:'สถานะเฝ้าระวัง', val:watchCount, cls:'watch', status:'watch'},
     {label:'สถานะปกติ', val:okCount, cls:'ok', status:'ok'},
