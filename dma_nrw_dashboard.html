@@ -309,7 +309,7 @@ const REMARK_CSV_URL = `https://docs.google.com/spreadsheets/d/${REMARK_SHEET_ID
 // fetch ไม่ผ่าน/ชีทว่าง/ไม่มีคอลัมน์ที่ต้องการ = ไม่มี DM ไหน "มีหมายเหตุ" เลย ไม่ทำให้หน้าเว็บพัง
 // ⚠️ เลเยอร์นี้เป็นแค่ UI display เท่านั้น — ไม่กระทบการคำนวณ MNF/baseline/CUSUM ฝั่ง Python เลยแม้แต่นิดเดียว
 const REFRESH_MINUTES = 5;                         // ความถี่ในการ fetch ไฟล์ใหม่ (มีผลเฉพาะตอน AUTO_REFRESH_ENABLED = true)
-const AUTO_REFRESH_ENABLED = true;                 // false = โหลดข้อมูลครั้งเดียวตอนเปิดหน้า ไม่ตั้ง setInterval รีเฟรชอัตโนมัติ
+const AUTO_REFRESH_ENABLED = false ;                 // false = โหลดข้อมูลครั้งเดียวตอนเปิดหน้า ไม่ตั้ง setInterval รีเฟรชอัตโนมัติ
 const HISTORY_DAYS = 30;                           // จำนวนวันย้อนหลังที่ใช้แสดงผล (โหมดจำลองเท่านั้น)
 
 /* ---------------------------------------------------------------------
