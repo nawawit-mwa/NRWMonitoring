@@ -648,6 +648,8 @@ function loadRemarksMap(url){
    RENDER PIPELINE
 --------------------------------------------------------------------- */
 let data = [];
+let pipelineGeneratedAt = null;   // เวลาที่ prepare_dma_csv.py รันเสร็จจริง (จาก generated_at ใน dma_status_summary.csv)
+                                    // ไม่ใช่เวลาที่ browser เปิดหน้า — null = ไม่มีคอลัมน์นี้ (ไฟล์เก่า/ยังไม่ได้อัปเดต pipeline)
 const STATUS_LABEL = {alert:'แจ้งเตือน', watch:'เฝ้าระวัง', ok:'ปกติ', no_data:'ไม่มีข้อมูล', remark:'มีหมายเหตุ'};
 
 function dStatus(d){
@@ -686,7 +688,9 @@ function renderAll(){
   renderKpis();
   renderPriority();
   renderCards();
-  document.getElementById('ts').textContent = parseLocalDate().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
+  document.getElementById('ts').textContent = pipelineGeneratedAt
+    ? parseLocalDate(pipelineGeneratedAt).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}) + ' (ประมวลผลจริง)'
+    : parseLocalDate().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}) + ' (เวลาที่หน้านี้โหลด — ยังไม่มี generated_at จาก pipeline)';
 }
 
 async function refreshFromCsv(isFirstLoad){
@@ -699,6 +703,7 @@ async function refreshFromCsv(isFirstLoad){
     const hourlyByDma = hourlyFromFlowCsv(flowRows);
     const seriesByDma = seriesFromCsv(seriesRows);
     const summaryByDma = summaryFromCsv(summaryRows);
+    pipelineGeneratedAt = (summaryRows[0] && summaryRows[0].generated_at) ? summaryRows[0].generated_at : null;
 
     const codes = Object.keys(summaryByDma).filter(code => !ignoreSet.has(code));
     if(!codes.length) throw new Error('อ่านไฟล์ได้แต่ไม่พบจุดวัด DM ที่ใช้ได้ใน dma_status_summary.csv');
