@@ -665,6 +665,17 @@ function severityThenCodeCmp(a, b){
   return STATUS_ORDER[dStatus(a)] - STATUS_ORDER[dStatus(b)] || a.code.localeCompare(b.code);
 }
 
+function displayExcess(d){
+  // ค่า "ส่วนต่าง" ที่ใช้เรียงต้องตรงกับที่โชว์บนตาราง — แถวสถานะ "ปกติ" โชว์ "—" (ไม่ใช่ตัวเลขจริง) ทั้งที่
+  // Python คำนวณ excessPerHour ไว้ให้ทุก DMA เสมอ (ไม่ใช่แค่ตัวที่ผิดปกติ) ถ้าเอาเลขจริงที่ซ่อนอยู่มาเรียง
+  // จะดูเหมือนเรียงผิด (แถว "—" แทรกกลางแถวที่มีตัวเลขแบบสุ่มๆ) จึงต้องตีเป็น 0 ให้ตรงกับสิ่งที่ตาเห็น
+  return d.a.status==='ok' ? 0 : d.a.excessPerHour;
+}
+
+function displayLoss(d){
+  return d.a.status==='ok' ? 0 : d.a.estLossPerDay;
+}
+
 const HOURLY_NOTE_DEFAULT = 'แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU';
 const HOURLY_NOTE_EMPTY = 'ไม่มีข้อมูลราย 15 นาทีสำหรับจุดวัด DM นี้ — สถานะ "ปกติ" จึงไม่ถูกส่งเข้า flow_log.csv เพื่อลดขนาดไฟล์ (ดูกราฟรายวันได้เฉพาะ DMA ที่อยู่ในสถานะเฝ้าระวัง/แจ้งเตือน — MNF/CUSUM ด้านบนยังใช้งานได้ตามปกติ)';
 const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว';
@@ -883,8 +894,8 @@ function renderPriority(){
     code: (a,b)=> a.code.localeCompare(b.code),
     currentMnf: (a,b)=> a.a.currentMnf-b.a.currentMnf,
     mean: (a,b)=> a.a.mean-b.a.mean,
-    excessPerHour: (a,b)=> a.a.excessPerHour-b.a.excessPerHour,
-    estLossPerDay: (a,b)=> a.a.estLossPerDay-b.a.estLossPerDay,
+    excessPerHour: (a,b)=> displayExcess(a)-displayExcess(b),
+    estLossPerDay: (a,b)=> displayLoss(a)-displayLoss(b),
   };
 
   const filteredData = data.filter(matchesFilters);
