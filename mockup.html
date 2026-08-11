@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Job Management Example</title>
+    <style>
+        /* สไตล์พื้นฐานของ Modal */
+        body { font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        
+        /* Backdrop */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+
+        /* Container ของ Modal */
+        .modal-container {
+            background: #fff; width: 90%; max-width: 850px; max-height: 90vh;
+            border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* Header */
+        .modal-header {
+            padding: 16px 24px; background: #1e293b; color: #fff;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-title { font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .badge-alert { background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; }
+        .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; }
+        .close-btn:hover { color: #fff; }
+
+        /* Navigation Tabs Header */
+        .tab-header {
+            display: flex; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+        }
+        .tab-btn {
+            padding: 12px 24px; border: none; background: none; cursor: pointer;
+            font-size: 0.95rem; font-weight: 600; color: #64748b;
+            border-bottom: 3px solid transparent; transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #0284c7; }
+        .tab-btn.active { color: #0284c7; border-bottom-color: #0284c7; background: #fff; }
+
+        /* Body & Tabs Content */
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* --- สไตล์ส่วนฟอร์มกรอกข้อมูล (ส่วนบน) --- */
+        .form-section {
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+            padding: 18px; margin-bottom: 24px;
+        }
+        .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: #334155; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full-width { grid-column: span 2; }
+        
+        label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+        input, select, textarea {
+            padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
+            font-size: 0.9rem; font-family: inherit; outline: none;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
+        
+        .form-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+        .btn-submit {
+            background: #0284c7; color: white; border: none; padding: 10px 20px;
+            border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+        }
+        .btn-submit:hover { background: #0369a1; }
+
+        /* --- สไตล์ส่วนตาราง Log (ส่วนล่าง) --- */
+        .log-section { background: #fff; }
+        .log-table-wrapper {
+            max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        th { background: #f1f5f9; padding: 10px 12px; font-weight: 600; color: #475569; position: sticky; top: 0; }
+        td { padding: 10px 12px; border-top: 1px solid #f1f5f9; color: #334155; }
+        
+        /* Badges ในตาราง */
+        .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .status-progress { background: #fef3c7; color: #d97706; }
+        .status-fixed { background: #dcfce7; color: #15803d; }
+        .status-created { background: #e0f2fe; color: #0369a1; }
+    </style>
+</head>
+<body>
+
+    <!-- Modal Background & Container -->
+    <div class="modal-overlay">
+        <div class="modal-container">
+            
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span>DMA-01 : พื้นที่สุขุมวิท</span>
+                    <span class="badge-alert">🔴 Case A</span>
+                </div>
+                <button class="close-btn">&times;</button>
+            </div>
+
+            <!-- Tab Buttons Bar -->
+            <div class="tab-header">
+                <button class="tab-btn" onclick="switchTab('analytics')">📊 กราฟและข้อมูลวิเคราะห์</button>
+                <button class="tab-btn active" onclick="switchTab('job')">🛠️ ติดตามงานซ่อม (Job Management)</button>
+            </div>
+
+            <!-- Modal Content Body -->
+            <div class="modal-body">
+                
+                <!-- TAB 1: กราฟและข้อมูลวิเคราะห์ -->
+                <div id="tab-analytics" class="tab-content">
+                    <p style="color: #64748b; text-align: center; padding: 40px;">
+                        [ พื้นที่สำหรับแสดง กราฟ MNF 30 วัน, รูปแบบการไหล 15 นาที และกราฟแรงดัน ]
+                    </p>
+                </div>
+
+                <!-- TAB 2: ติดตามงานซ่อม -->
+                <div id="tab-job" class="tab-content active">
+                    
+                    <!-- ส่วนบน: ฟอร์มกรอกข้อมูล -->
+                    <div class="form-section">
+                        <div class="section-title">📝 บันทึก/อัปเดตการดำเนินงาน</div>
+                        <form id="jobForm" onsubmit="handleFormSubmit(event)">
+                            <div class="form-grid">
+                                
+                                <div class="form-group">
+                                    <label for="assignee">ผู้รับผิดชอบ / ทีมงาน</label>
+                                    <select id="assignee" required>
+                                        <option value="">-- เลือกทีมงาน --</option>
+                                        <option value="ทีมสำรวจท่อรั่ว เขต 1">ทีมสำรวจท่อรั่ว เขต 1</option>
+                                        <option value="ทีมสำรวจท่อรั่ว เขต 2">ทีมสำรวจท่อรั่ว เขต 2</option>
+                                        <option value="ทีมช่างซ่อมบำรุง">ทีมช่างซ่อมบำรุง</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="status">สถานะงาน</label>
+                                    <select id="status" required>
+                                        <option value="In Progress">🟡 In Progress (กำลังดำเนินการ)</option>
+                                        <option value="Fixed">🟢 Fixed (ซ่อมเสร็จแล้ว)</option>
+                                        <option value="Closed">⚫ Closed (ปิดงาน)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group full-width">
+                                    <label for="iwaStep">ระบุขั้นตอน</label>
+                                    <select id="iwaStep" required>
+                                        <option value="">-- เลือกขั้นตอนการสำรวจท่อรั่ว --</option>
+                                        <option value="[IWA-02] Step Testing">[IWA-02] Step Testing (การทำ Step Test บีบวงพื้นที่รั่ว)</option>
+                                        <option value="[IWA-03] Pre-Location (Acoustic Logging)">[IWA-03] Pre-Location (การวางเครื่องสำรวจเสียงรั่วเบื้องต้น)</option>
+                                        <option value="[IWA-04] Pinpointing (Correlator / Ground Mic)">[IWA-04] Pinpointing (การระบุตำแหน่งจุดรั่วละเอียด)</option>
+                                        <option value="[IWA-06] Excavation & Leak Repair">[IWA-06] Excavation & Leak Repair (การขุดเปิดหน้างานและซ่อมแซม)</option>
+                                        <option value="[IWA-07] Post-Repair Verification">[IWA-07] Post-Repair Verification (การตรวจสอบยืนยันผลหลังซ่อม)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group full-width">
+                                    <label for="remark">รายละเอียด / ผลการดำเนินงาน</label>
+                                    <textarea id="remark" rows="3" placeholder="ระบุตำแหน่งพิกัดที่พบ หรือรายละเอียดการดำเนินการหน้างาน..." required></textarea>
+                                </div>
+
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn-submit">💾 บันทึกและอัปเดตข้อมูล</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- ส่วนล่าง: ตาราง Log บันทึกประวัติ -->
+                    <div class="log-section">
+                        <div class="section-title">📜 ประวัติการบันทึกการทำงาน (Audit Log)</div>
+                        <div class="log-table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>วัน-เวลา</th>
+                                        <th>ผู้ดำเนินการ</th>
+                                        <th>สถานะ</th>
+                                        <th>ขั้นตอน</th>
+                                        <th>รายละเอียด</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logTableBody">
+                                    <tr>
+                                        <td>11/08/26 14:15</td>
+                                        <td>ทีมสำรวจ เขต 1</td>
+                                        <td><span class="status-badge status-progress">In Progress</span></td>
+                                        <td>[IWA-04] Pinpointing</td>
+                                        <td>ใช้ Correlator พบจุดรั่วห่างจาก RTU 120 ม.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>11/08/26 09:30</td>
+                                        <td>System Auto</td>
+                                        <td><span class="status-badge status-created">New</span></td>
+                                        <td>-</td>
+                                        <td>ระบบตรวจพบอัตรา MNF เกินเกณฑ์ $+2\text{SD}$</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Script ควบคุมสลับ Tab และส่งข้อมูล -->
+    <script>
+        // ฟังก์ชันสลับ Tab
+        function switchTab(tabName) {
+            // ซ่อน Tab Content ทั้งหมด
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            // เอา Class active ออกจากปุ่มทั้งหมด
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            // เปิด Tab Content และไฮไลต์ปุ่มที่เลือก
+            document.getElementById('tab-' + tabName).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // ฟังก์ชันเมื่อกดบันทึกฟอร์ม
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            // ดึงค่าจากฟอร์ม
+            const assignee = document.getElementById('assignee').value;
+            const status = document.getElementById('status').value;
+            const iwaStep = document.getElementById('iwaStep').value;
+            const remark = document.getElementById('remark').value;
+
+            // สร้าง เวลาปัจจุบัน (ตัวอย่าง)
+            const now = new Date();
+            const timeStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear().toString().substr(-2)} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            // เพิ่มแถวใหม่ลงในตาราง Log ด้านล่างทันที (Dynamic UI update)
+            const logTableBody = document.getElementById('logTableBody');
+            const newRow = document.createElement('tr');
+            
+            let statusBadgeClass = 'status-progress';
+            if(status === 'Fixed') statusBadgeClass = 'status-fixed';
+
+            newRow.innerHTML = `
+                <td>${timeStr}</td>
+                <td>${assignee}</td>
+                <td><span class="status-badge ${statusBadgeClass}">${status}</span></td>
+                <td>${iwaStep.split(' ')[0]}</td>
+                <td>${remark}</td>
+            `;
+
+            // แทรกไว้ที่แถวบนสุดของตาราง
+            logTableBody.insertBefore(newRow, logTableBody.firstChild);
+
+            // รีเซ็ตข้อความใน Textarea
+            document.getElementById('remark').value = '';
+            alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
+
+            // * ในระบบจริง ส่วนนี้จะทำการส่งข้อมูลผ่าน fetch() ไปยัง Google Apps Script API เพื่อบันทึกลง Google Sheet
+        }
+    </script>
+</body>
+</html>
