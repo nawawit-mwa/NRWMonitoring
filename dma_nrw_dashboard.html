@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ศูนย์เฝ้าระวังน้ำสูญเสีย — DM / RTU</title>
+<title>ศูนย์เฝ้าระวังน้ำสูญเสีย — MNF / RTU</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <!-- เปลี่ยนจาก cdnjs เป็น jsDelivr -->
@@ -203,8 +203,8 @@
 
   <header>
     <div>
-      <h1>ศูนย์เฝ้าระวังน้ำสูญเสีย — DM / RTU</h1>
-      <p class="sub">คัดกรองพื้นที่ที่มีแนวโน้มน้ำสูญเสีย/ท่อแตกรั่ว จากสถิติ Minimum Night Flow (MNF) <br>และ Statistical Process Control ต่อพื้นที่ DMA</p>
+      <h1>ศูนย์เฝ้าระวังน้ำสูญเสีย — MNF / RTU</h1>
+      <p class="sub">คัดกรอง RTU ที่มีแนวโน้มน้ำสูญเสีย/ท่อแตกรั่ว จากสถิติ Minimum Night Flow (MNF) <br>และ Statistical Process Control ต่อข้อมูล RTU</p>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
       <button class="theme-toggle" id="themeToggle" title="สลับธีมสว่าง/มืด"><span id="themeIcon">🌙</span> <span id="themeLabel">มืด</span></button>
@@ -221,7 +221,7 @@
     <span class="clear-btn" onclick="clearSearchQuery()">✕</span>
   </div>
 
-  <div class="help-hint">💡 พิมพ์ค้นหา RTU/DM ด้านบน หรือคลิกการ์ดสถานะเพื่อกรอง (คลิกซ้ำเพื่อล้าง) · คลิกหัวตารางเพื่อเรียงลำดับ (คลิกซ้ำเพื่อสลับทิศทางมาก↔น้อย) · ผู้ใช้งานสามารถกำหนดรายการ RTU ที่มีหมายเหตุ ได้ตาม <a href="https://docs.google.com/spreadsheets/d/1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">LINK นี้</a></div>
+  <div class="help-hint">💡 พิมพ์ค้นหา RTU ด้านบน หรือคลิกการ์ดสถานะเพื่อกรอง (คลิกซ้ำเพื่อล้าง) · คลิกหัวตารางเพื่อเรียงลำดับ (คลิกซ้ำเพื่อสลับทิศทางมาก↔น้อย) · ผู้ใช้งานสามารถกำหนดรายการ RTU ที่มีหมายเหตุ ได้ตาม <a href="https://docs.google.com/spreadsheets/d/1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">LINK นี้</a></div>
 
   <div class="region-bar" id="regionBar"></div>
 
@@ -232,7 +232,7 @@
   <table>
     <thead><tr>
       <th class="sortable" data-key="status" onclick="sortPriorityBy('status')">สถานะ <span class="sort-ind"></span></th>
-      <th class="sortable" data-key="code" onclick="sortPriorityBy('code')">DM <span class="sort-ind"></span></th>
+      <th class="sortable" data-key="code" onclick="sortPriorityBy('code')">RTU <span class="sort-ind"></span></th>
       <th class="sortable" data-key="currentMnf" onclick="sortPriorityBy('currentMnf')">MNF ปัจจุบัน <span class="sort-ind"></span></th>
       <th class="sortable" data-key="mean" onclick="sortPriorityBy('mean')">MNF ฐาน (Baseline) <span class="sort-ind"></span></th>
       <th class="sortable" data-key="excessPerHour" onclick="sortPriorityBy('excessPerHour')">ส่วนต่าง <span class="sort-ind"></span></th>
@@ -246,7 +246,7 @@
   <div class="grid" id="cardGrid"></div>
 
   <footer>
-    วิธีคำนวณ: MNF = ค่าเฉลี่ย flow ในช่วงเวลาใช้น้ำต่ำสุดของแต่ละจุดวัด DM (ตรวจจับอัตโนมัติต่อพื้นที่จากข้อมูลจริงย้อนหลัง 28 วัน ไม่ใช่ช่วงเวลาคงที่เดียวกันทุกจุดวัด DM) · Baseline = ค่าเฉลี่ย ± 2SD ของ MNF ช่วง 14 วันแรก · สถานะ "แจ้งเตือน" ต้องเกินเกณฑ์ต่อเนื่องอย่างน้อย 3 ใน 5 วันล่าสุด เพื่อกรอง event ใช้น้ำชั่วคราวออก
+    วิธีคำนวณ: MNF = ค่าเฉลี่ย flow ในช่วงเวลาใช้น้ำต่ำสุดของแต่ละจุดวัด RTU (ตรวจจับอัตโนมัติต่อพื้นที่จากข้อมูลจริงย้อนหลัง 28 วัน ไม่ใช่ช่วงเวลาคงที่เดียวกันทุกจุดวัด DM) · Baseline = ค่าเฉลี่ย ± 2SD ของ MNF ช่วง 14 วันแรก · สถานะ "แจ้งเตือน" ต้องเกินเกณฑ์ต่อเนื่องอย่างน้อย 3 ใน 5 วันล่าสุด เพื่อกรอง event ใช้น้ำชั่วคราวออก
   </footer>
 </div>
 
@@ -679,9 +679,9 @@ function displayLoss(d){
 }
 
 const HOURLY_NOTE_DEFAULT = 'แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU';
-const HOURLY_NOTE_EMPTY = 'ไม่มีข้อมูลราย 15 นาทีสำหรับจุดวัด DM นี้ — สถานะ "ปกติ" จึงไม่ถูกส่งเข้า flow_log.csv เพื่อลดขนาดไฟล์ (ดูกราฟรายวันได้เฉพาะ DMA ที่อยู่ในสถานะเฝ้าระวัง/แจ้งเตือน — MNF/CUSUM ด้านบนยังใช้งานได้ตามปกติ)';
+const HOURLY_NOTE_EMPTY = 'ไม่มีข้อมูลราย 15 นาทีสำหรับจุดวัด RTU นี้ — สถานะ "ปกติ" จึงไม่ถูกส่งเข้า flow_log.csv เพื่อลดขนาดไฟล์ (ดูกราฟรายวันได้เฉพาะ DMA ที่อยู่ในสถานะเฝ้าระวัง/แจ้งเตือน — MNF/CUSUM ด้านบนยังใช้งานได้ตามปกติ)';
 const PRESSURE_NOTE_DEFAULT = 'ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว';
-const PRESSURE_NOTE_EMPTY = 'ไม่มีข้อมูลแรงดันราย 15 นาทีสำหรับจุดวัด DM นี้ (เหตุผลเดียวกับกราฟการไหลด้านบน)';
+const PRESSURE_NOTE_EMPTY = 'ไม่มีข้อมูลแรงดันราย 15 นาทีสำหรับจุดวัด RTU นี้ (เหตุผลเดียวกับกราฟการไหลด้านบน)';
 
 function renderAll(){
   renderRegionBar();
@@ -706,7 +706,7 @@ async function refreshFromCsv(isFirstLoad){
     pipelineGeneratedAt = (summaryRows[0] && summaryRows[0].generated_at) ? summaryRows[0].generated_at : null;
 
     const codes = Object.keys(summaryByDma).filter(code => !ignoreSet.has(code));
-    if(!codes.length) throw new Error('อ่านไฟล์ได้แต่ไม่พบจุดวัด DM ที่ใช้ได้ใน dma_status_summary.csv');
+    if(!codes.length) throw new Error('อ่านไฟล์ได้แต่ไม่พบจุดวัด RTU ที่ใช้ได้ใน dma_status_summary.csv');
 
     data = codes.map(code=>{
       const s = summaryByDma[code], sr = seriesByDma[code] || {mnfSeries:[], totalSeries:[], cPlusSeries:[]};
@@ -828,7 +828,7 @@ function emptyFilterMessage(){
   if(activeRegion !== 'ทั้งหมด') parts.push(`เขต "${activeRegion}"`);
   if(activeStatusFilter) parts.push(`สถานะ "${STATUS_LABEL[activeStatusFilter]}"`);
   if(searchQuery) parts.push(`คำค้นหา "${searchQuery}"`);
-  return parts.length ? `ไม่พบ DM ที่ตรงกับ ${parts.join(' และ ')}` : 'ไม่มีข้อมูล DM';
+  return parts.length ? `ไม่พบ RTU ที่ตรงกับ ${parts.join(' และ ')}` : 'ไม่มีข้อมูล DM';
 }
 
 function renderKpis(){
@@ -841,7 +841,7 @@ function renderKpis(){
   const totalToday = regionData.reduce((s,d)=>s+(d.a.totalSeries[d.a.totalSeries.length-1]||0),0);
 
   const kpis = [
-    {label:'DM ที่ตรวจสอบ', val:regionData.length, cls:'', status:null},
+    {label:'RTU ที่ตรวจสอบ', val:regionData.length, cls:'', status:null},
     {label:'สถานะแจ้งเตือน', val:alertCount, cls:'alert', status:'alert'},
     {label:'สถานะเฝ้าระวัง', val:watchCount, cls:'watch', status:'watch'},
     {label:'สถานะปกติ', val:okCount, cls:'ok', status:'ok'},
