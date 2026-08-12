@@ -195,6 +195,42 @@
   .chart-box canvas{max-height:190px;}
   .note{font-size:11.5px;color:var(--text-faint);line-height:1.6;margin-top:8px;}
 
+  /* modal tabs (Job Management) */
+  .modal-tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);}
+  .mtab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 4px 10px;margin-bottom:-1px;
+    font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;transition:color .15s,border-color .15s;}
+  .mtab:hover{color:var(--text);}
+  .mtab.active{color:var(--teal);border-bottom-color:var(--teal);}
+  .mtab-panel{display:none;}
+  .mtab-panel.active{display:block;}
+
+  .job-form{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;}
+  .job-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px;}
+  .job-field label{display:block;font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+  .job-field select,.job-field textarea{
+    width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;font-size:13px;color:var(--text);font-family:inherit;
+  }
+  .job-field select:focus,.job-field textarea:focus{outline:none;border-color:var(--teal);}
+  .job-field textarea{resize:vertical;min-height:64px;}
+  .job-submit-row{display:flex;align-items:center;gap:10px;justify-content:flex-end;}
+  .job-submit-btn{
+    display:inline-flex;align-items:center;gap:8px;background:var(--teal);color:#08131a;border:none;
+    border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s;
+  }
+  .job-submit-btn:hover{opacity:.88;}
+  .job-submit-btn:disabled{opacity:.6;cursor:not-allowed;}
+  .job-spinner{width:13px;height:13px;border-radius:50%;border:2px solid rgba(8,19,26,.35);border-top-color:#08131a;
+    animation:jobspin .7s linear infinite;display:none;}
+  @keyframes jobspin{to{transform:rotate(360deg);}}
+  .job-log-note{font-size:11.5px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber);
+    border-radius:8px;padding:8px 12px;margin-bottom:12px;display:none;}
+  .job-log-table tbody tr{cursor:default;}
+  .job-log-table tbody tr:hover{background:transparent;}
+  .job-log-empty{text-align:center;color:var(--text-faint);font-size:12.5px;padding:18px 10px;}
+
+  footer{margin-top:36px;color:var(--text-faint);font-size:11.5px;text-align:center;line-height:1.7;}
+
   footer{margin-top:36px;color:var(--text-faint);font-size:11.5px;text-align:center;line-height:1.7;}
 </style>
 </head>
@@ -255,35 +291,87 @@
     <button class="close" id="closeBtn">✕</button>
     <h3 id="mName"></h3>
     <div class="mcode mono" id="mCode"></div>
-    <div id="mHardBanner" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;background:var(--red-soft);border:1px solid var(--red);color:var(--red);font-size:12.5px;font-weight:600;">⚡ <span id="mHardBannerText"></span></div>
-    <div id="mRemarkPanel" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;background:var(--remark-soft);border:1px solid var(--remark);color:var(--remark);font-size:12.5px;">
-      <div style="font-weight:700;margin-bottom:4px;">📌 หมายเหตุจากระบบ / Remark<span id="mRemarkCategory" class="mono" style="font-weight:400;font-size:11px;"></span></div>
-      <div id="mRemarkText" style="font-weight:400;white-space:pre-wrap;"></div>
-    </div>
-    <div class="mkpis" id="mKpis"></div>
 
-    <div class="chart-box">
-      <div class="ct">MNF รายวัน (30 วันล่าสุด) เทียบเกณฑ์ฐาน</div>
-      <canvas id="chartMnf"></canvas>
-      <div class="note">เส้นทึบ = MNF จริงรายวัน · เส้นประฟ้า = ค่าเฉลี่ยฐาน · เส้นประแดง = ค่าเฉลี่ยฐาน + 2SD (จุดตัดที่คงอยู่ต่อเนื่องหลายวัน คือสัญญาณรั่วที่น่าเชื่อถือ)</div>
+    <div class="modal-tabs">
+      <button type="button" class="mtab active" data-tab="analysis" onclick="switchModalTab('analysis')">📊 กราฟและข้อมูลวิเคราะห์</button>
+      <button type="button" class="mtab" data-tab="job" onclick="switchModalTab('job')">🛠️ ติดตามงานซ่อม</button>
     </div>
 
-    <!--<div class="chart-box">
-      <div class="ct">CUSUM — การสะสมของส่วนเบี่ยงเบนจากฐาน <span id="mkBadge" class="mono" style="font-size:11px;font-weight:400;"></span></div>
-      <canvas id="chartCusum"></canvas>
-      <div class="note" id="cusumNote"></div>
-    </div>-->
+    <div id="tabAnalysis" class="mtab-panel active">
+      <div id="mHardBanner" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;background:var(--red-soft);border:1px solid var(--red);color:var(--red);font-size:12.5px;font-weight:600;">⚡ <span id="mHardBannerText"></span></div>
+      <div id="mRemarkPanel" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;background:var(--remark-soft);border:1px solid var(--remark);color:var(--remark);font-size:12.5px;">
+        <div style="font-weight:700;margin-bottom:4px;">📌 หมายเหตุจากระบบ / Remark<span id="mRemarkCategory" class="mono" style="font-weight:400;font-size:11px;"></span></div>
+        <div id="mRemarkText" style="font-weight:400;white-space:pre-wrap;"></div>
+      </div>
+      <div class="mkpis" id="mKpis"></div>
 
-    <div class="chart-box">
-      <div class="ct">รูปแบบการไหลรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
-      <canvas id="chartHourly"></canvas>
-      <div class="note" id="hourlyNote">แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU</div>
+      <div class="chart-box">
+        <div class="ct">MNF รายวัน (30 วันล่าสุด) เทียบเกณฑ์ฐาน</div>
+        <canvas id="chartMnf"></canvas>
+        <div class="note">เส้นทึบ = MNF จริงรายวัน · เส้นประฟ้า = ค่าเฉลี่ยฐาน · เส้นประแดง = ค่าเฉลี่ยฐาน + 2SD (จุดตัดที่คงอยู่ต่อเนื่องหลายวัน คือสัญญาณรั่วที่น่าเชื่อถือ)</div>
+      </div>
+
+      <!--<div class="chart-box">
+        <div class="ct">CUSUM — การสะสมของส่วนเบี่ยงเบนจากฐาน <span id="mkBadge" class="mono" style="font-size:11px;font-weight:400;"></span></div>
+        <canvas id="chartCusum"></canvas>
+        <div class="note" id="cusumNote"></div>
+      </div>-->
+
+      <div class="chart-box">
+        <div class="ct">รูปแบบการไหลรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
+        <canvas id="chartHourly"></canvas>
+        <div class="note" id="hourlyNote">แถบเทา = ช่วง flow ปกติ (min–max ย้อนหลัง) · เส้นฟ้า = วันล่าสุด · ความละเอียด 15 นาที/จุด (96 จุด/วัน) ตามข้อมูล RTU</div>
+      </div>
+
+      <div class="chart-box">
+        <div class="ct">แรงดันน้ำรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
+        <canvas id="chartPressure"></canvas>
+        <div class="note" id="pressureNote">ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว</div>
+      </div>
     </div>
 
-    <div class="chart-box">
-      <div class="ct">แรงดันน้ำรายวัน (ราย 15 นาที) — ล่าสุด เทียบช่วงปกติ</div>
-      <canvas id="chartPressure"></canvas>
-      <div class="note" id="pressureNote">ใช้ยืนยันร่วมกับ flow สูง: ถ้าแรงดันตกพร้อมกับ flow เพิ่มขึ้นอย่างต่อเนื่อง = สัญญาณท่อแตกที่น่าเชื่อถือกว่าดู flow อย่างเดียว</div>
+    <div id="tabJob" class="mtab-panel">
+      <div class="job-log-note" id="jobModeNote">⚠️ ยังไม่ได้ตั้งค่า Apps Script URL (<code class="mono">JOB_API_URL</code>) — ตอนนี้ทำงานใน <b>โหมดจำลอง</b>: บันทึกไว้ในหน่วยความจำเบราว์เซอร์ชั่วคราวเท่านั้น (หายเมื่อรีเฟรชหน้า ไม่ถูกแชร์กับผู้ใช้อื่น) ดูวิธีตั้งค่าใน <code class="mono">Code.gs</code> ที่แนบมา</div>
+
+      <div class="job-form">
+        <div class="job-form-grid">
+          <div class="job-field">
+            <label for="jobAssignee">ผู้รับผิดชอบ / ทีมงาน</label>
+            <select id="jobAssignee"><option value="">— เลือก —</option></select>
+          </div>
+          <div class="job-field">
+            <label for="jobStatus">สถานะงาน</label>
+            <select id="jobStatus"><option value="">— เลือก —</option></select>
+          </div>
+          <div class="job-field">
+            <label for="jobStep">ขั้นตอนที่ดำเนินการ</label>
+            <select id="jobStep"><option value="">— เลือก —</option></select>
+          </div>
+        </div>
+        <div class="job-field" style="margin-bottom:12px;">
+          <label for="jobRemark">รายละเอียด / ผลการดำเนินงาน</label>
+          <textarea id="jobRemark" placeholder="บันทึกรายละเอียดการตรวจสอบ/ซ่อมแซม..."></textarea>
+        </div>
+        <div class="job-submit-row">
+          <span class="job-spinner" id="jobSubmitSpinner"></span>
+          <button type="button" class="job-submit-btn" id="jobSubmitBtn" onclick="submitJobLog()">
+            <span id="jobSubmitBtnLabel">บันทึกและอัปเดตข้อมูล</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin:0 0 10px;"><h2 style="font-size:14px;">ประวัติการบันทึกงาน (Audit Log)</h2><div class="line"></div></div>
+      <table class="job-log-table">
+        <thead><tr>
+          <th>วัน-เวลา</th>
+          <th>ผู้ดำเนินการ</th>
+          <th>สถานะ</th>
+          <th>ขั้นตอน</th>
+          <th>รายละเอียด</th>
+        </tr></thead>
+        <tbody id="jobLogBody"></tbody>
+      </table>
+      <div class="job-log-empty" id="jobLogEmpty" style="display:none;">ยังไม่มีประวัติงานสำหรับ RTU นี้</div>
     </div>
   </div>
 </div>
@@ -311,6 +399,26 @@ const REMARK_CSV_URL = `https://docs.google.com/spreadsheets/d/${REMARK_SHEET_ID
 const REFRESH_MINUTES = 5;                         // ความถี่ในการ fetch ไฟล์ใหม่ (มีผลเฉพาะตอน AUTO_REFRESH_ENABLED = true)
 const AUTO_REFRESH_ENABLED = true;                 // false = โหลดข้อมูลครั้งเดียวตอนเปิดหน้า ไม่ตั้ง setInterval รีเฟรชอัตโนมัติ
 const HISTORY_DAYS = 30;                           // จำนวนวันย้อนหลังที่ใช้แสดงผล (โหมดจำลองเท่านั้น)
+
+/* ---------------------------------------------------------------------
+   JOB MANAGEMENT (ติดตามงานซ่อม) — เชื่อมต่อ Google Sheets ผ่าน Apps Script Web App
+   ---------------------------------------------------------------------
+   ⚠️ สำคัญด้านความปลอดภัย: ห้ามฝัง service_account.json หรือ credential ใดๆ ไว้ใน
+   ไฟล์ HTML/JS ฝั่งเบราว์เซอร์นี้เด็ดขาด เพราะใครก็ตามที่เปิดดู "View Source" จะเห็นและ
+   นำ credential ไปใช้เขียน/ลบข้อมูลใน Google Sheet ได้ทันที โค้ดชุดนี้จึงเรียกผ่าน
+   Google Apps Script Web App (ผูกกับสิทธิ์เจ้าของชีทโดยตรง ไม่ต้องมีไฟล์ credential แยก)
+   แทน — ดูวิธี deploy และโค้ดฝั่ง backend ทั้งหมดในไฟล์ Code.gs ที่แนบมาให้แยกต่างหาก
+--------------------------------------------------------------------- */
+const JOB_SHEET_ID   = '1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs'; // Google Sheet เดียวกับ Remark (คนละแท็บ)
+const JOB_SHEET_NAME = 'job_log';
+const JOB_API_URL    = 'https://script.google.com/macros/s/AKfycbyDwcnc_RRAaeZ4VRTdSLqb-ROx-tyMQCw0wXjQZT2Euajmi7DjwTRFOG2BTqgoFBBQJA/exec';   // <<< ใส่ URL ของ Apps Script Web App หลัง deploy เช่น
+                              //     'https://script.google.com/macros/s/AKfycb.../exec'
+                              //     ปล่อยว่างไว้ = ทำงานในโหมดจำลอง (เก็บ log ไว้ในหน่วยความจำเบราว์เซอร์
+                              //     ชั่วคราวเท่านั้น ไม่ถาวร ไม่ sync ข้ามเครื่อง/ผู้ใช้ — ไว้เดโม UI ได้ก่อน backend พร้อม)
+
+const ASSIGNEE_OPTIONS = ['ทีม สปน. สาขา','ทีม ฝจส.','ทีม บริหารข้อมูล'];
+const JOBSTATUS_OPTIONS = ['อยู่ระหว่างดำเนินการ','ดำเนินการแล้ว','ปิดงาน'];
+const JOBSTEP_OPTIONS = ['ตรวจสอบอุปกรณ์','ตรวจสอบภาคสนาม','ยกหีบประตูน้ำ','Step Testing','เดินสำรวจ Pin-Point','ดำเนินการซ่อมท่อ','ตรวจสอบ MNF หลังซ่อม'];
 
 /* ---------------------------------------------------------------------
    DATA LAYER (fallback synthetic generator — โหมดจำลองเมื่อไม่พบไฟล์ CSV จริง)
@@ -987,6 +1095,9 @@ function renderCards(){
 }
 
 let mnfChart, hourlyChart, cusumChart, pressureChart;
+let currentJobRtuId = null;   // RTU/DMA ที่กำลังเปิด modal อยู่ (ใช้อ้างอิงตอนบันทึก/โหลด job log)
+let jobLogsCache = [];        // ประวัติ job log ของ RTU ที่เปิดอยู่ (ใช้ทำ optimistic UI update)
+const jobLogMemoryStore = {}; // fallback เมื่อยังไม่ตั้งค่า JOB_API_URL — key: rtuId, value: array ของ log
 function openModal(code){
   const d = data.find(x=>x.code===code);
   window._lastOpenedDmaCode = code;
@@ -994,6 +1105,16 @@ function openModal(code){
   document.getElementById('mName').textContent = d.name;
   document.getElementById('mCode').textContent = `${d.code} · ${cm.icon} ${cm.label}`;
   document.getElementById('mCode').title = d.a.caseReason || '';
+
+  // เปิด modal ใหม่ทุกครั้ง = กลับไป tab กราฟก่อนเสมอ + รีเซ็ต/โหลดฟอร์ม-ประวัติ job ของ RTU นี้
+  currentJobRtuId = d.code;
+  switchModalTab('analysis');
+  populateJobFormOptions();
+  document.getElementById('jobAssignee').value = '';
+  document.getElementById('jobStatus').value = '';
+  document.getElementById('jobStep').value = '';
+  document.getElementById('jobRemark').value = '';
+  fetchJobLogs(d.code);
 
   const remarkPanel = document.getElementById('mRemarkPanel');
   if(d.a.hasRemark){
@@ -1155,6 +1276,155 @@ function openModal(code){
   }
 
   document.getElementById('overlay').classList.add('open');
+}
+
+/* ---------------------------------------------------------------------
+   JOB MANAGEMENT — tab switching + Google Sheets fetch/submit (Apps Script)
+--------------------------------------------------------------------- */
+function switchModalTab(tab){
+  document.querySelectorAll('.mtab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('tabAnalysis').classList.toggle('active', tab === 'analysis');
+  document.getElementById('tabJob').classList.toggle('active', tab === 'job');
+  if(tab === 'analysis'){
+    // canvas ที่โดนซ่อนด้วย display:none ระหว่างอยู่ tab อื่น ทำให้ Chart.js คำนวณขนาดผิดตอนโผล่กลับมา
+    // ต้องสั่ง resize()+update() หลัง browser reflow เสร็จ ไม่งั้นกราฟจะเพี้ยน/แบนผิดสัดส่วน
+    requestAnimationFrame(() => {
+      [mnfChart, hourlyChart, pressureChart].forEach(c => { if(c){ c.resize(); c.update(); } });
+    });
+  }
+}
+
+function populateJobFormOptions(){
+  const assigneeSel = document.getElementById('jobAssignee');
+  const statusSel = document.getElementById('jobStatus');
+  const stepSel = document.getElementById('jobStep');
+  if(assigneeSel.options.length <= 1){ ASSIGNEE_OPTIONS.forEach(v => assigneeSel.add(new Option(v, v))); }
+  if(statusSel.options.length <= 1){ JOBSTATUS_OPTIONS.forEach(v => statusSel.add(new Option(v, v))); }
+  if(stepSel.options.length <= 1){ JOBSTEP_OPTIONS.forEach(v => stepSel.add(new Option(v, v))); }
+}
+
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+function fmtJobTimestamp(iso){
+  const dt = new Date(iso);
+  if(isNaN(dt.getTime())) return String(iso ?? '—');
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+function jobStatusColor(status){
+  if(status === 'Fixed') return 'var(--green)';
+  if(status === 'Closed') return 'var(--gray)';
+  return 'var(--amber)'; // In Progress / ค่าอื่นๆ ที่ไม่รู้จัก
+}
+
+async function fetchJobLogs(rtuId){
+  const tbody = document.getElementById('jobLogBody');
+  const emptyMsg = document.getElementById('jobLogEmpty');
+  const modeNote = document.getElementById('jobModeNote');
+  tbody.innerHTML = `<tr><td colspan="5" class="job-log-empty">⏳ กำลังโหลดประวัติ...</td></tr>`;
+  emptyMsg.style.display = 'none';
+
+  if(!JOB_API_URL){
+    modeNote.style.display = 'block';
+    jobLogsCache = jobLogMemoryStore[rtuId] ? [...jobLogMemoryStore[rtuId]] : [];
+    renderJobTable(jobLogsCache);
+    return;
+  }
+  modeNote.style.display = 'none';
+
+  try{
+    const url = `${JOB_API_URL}?action=list&rtuId=${encodeURIComponent(rtuId)}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if(json && json.ok === false) throw new Error(json.error || 'โหลดข้อมูลไม่สำเร็จ');
+    jobLogsCache = Array.isArray(json) ? json : (json.data || []);
+    renderJobTable(jobLogsCache);
+  }catch(err){
+    jobLogsCache = [];
+    tbody.innerHTML = `<tr><td colspan="5" class="job-log-empty" style="color:var(--red);">⚠️ โหลดประวัติไม่สำเร็จ (${escapeHtml(err.message)}) — ตรวจสอบว่า deploy Apps Script Web App แล้วและตั้งค่า JOB_API_URL ถูกต้อง</td></tr>`;
+  }
+}
+
+function renderJobTable(logs){
+  const tbody = document.getElementById('jobLogBody');
+  const emptyMsg = document.getElementById('jobLogEmpty');
+  const sorted = [...logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if(sorted.length === 0){
+    tbody.innerHTML = '';
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  tbody.innerHTML = sorted.map(row => `
+    <tr style="${row._pending ? 'opacity:.6;' : ''}${row._error ? 'background:var(--red-soft);' : ''}">
+      <td class="mono" style="white-space:nowrap;">${fmtJobTimestamp(row.timestamp)}</td>
+      <td>${escapeHtml(row.assignee || '—')}</td>
+      <td><span class="badge" style="background:transparent;border:1px solid ${jobStatusColor(row.status)};color:${jobStatusColor(row.status)};">${escapeHtml(row.status || '—')}</span></td>
+      <td>${escapeHtml(row.jobStep || '—')}</td>
+      <td style="white-space:pre-wrap;">${escapeHtml(row.remark || '')}${row._pending ? ' <span class="mono" style="color:var(--text-faint);">(กำลังบันทึก…)</span>' : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function submitJobLog(){
+  if(!currentJobRtuId) return;
+  const assigneeEl = document.getElementById('jobAssignee');
+  const statusEl = document.getElementById('jobStatus');
+  const stepEl = document.getElementById('jobStep');
+  const remarkEl = document.getElementById('jobRemark');
+  const assignee = assigneeEl.value, status = statusEl.value, jobStep = stepEl.value, remark = remarkEl.value.trim();
+
+  if(!assignee || !status || !jobStep){
+    alert('กรุณาเลือกผู้รับผิดชอบ / สถานะงาน / ขั้นตอน ให้ครบก่อนบันทึก');
+    return;
+  }
+
+  const btn = document.getElementById('jobSubmitBtn');
+  const spinner = document.getElementById('jobSubmitSpinner');
+  const label = document.getElementById('jobSubmitBtnLabel');
+  btn.disabled = true;
+  spinner.style.display = 'inline-block';
+  label.textContent = 'กำลังบันทึก...';
+
+  const payload = { rtuId: currentJobRtuId, timestamp: new Date().toISOString(), assignee, status, jobStep, remark };
+
+  // Optimistic UI: แทรกแถวใหม่ในตารางทันที ไม่รอผล fetch/response
+  const optimisticRow = { ...payload, _pending: true };
+  jobLogsCache = [optimisticRow, ...jobLogsCache];
+  renderJobTable(jobLogsCache);
+
+  try{
+    if(JOB_API_URL){
+      const res = await fetch(JOB_API_URL, {
+        method: 'POST',
+        // ใช้ text/plain แทน application/json โดยตั้งใจ — เลี่ยง CORS preflight (OPTIONS) ที่ Apps Script
+        // Web App ไม่รองรับ ฝั่ง Code.gs จะ parse JSON จาก e.postData.contents เอง (ดูตัวอย่างในไฟล์ที่แนบ)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'create', ...payload })
+      });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if(json && json.ok === false) throw new Error(json.error || 'บันทึกไม่สำเร็จ');
+    } else {
+      jobLogMemoryStore[currentJobRtuId] = [payload, ...(jobLogMemoryStore[currentJobRtuId] || [])];
+    }
+    optimisticRow._pending = false;
+    renderJobTable(jobLogsCache);
+    remarkEl.value = '';
+  }catch(err){
+    jobLogsCache = jobLogsCache.filter(r => r !== optimisticRow);
+    renderJobTable(jobLogsCache);
+    alert(`บันทึกไม่สำเร็จ: ${err.message}\nข้อมูลในฟอร์มยังอยู่ ลองกดบันทึกใหม่อีกครั้งได้เลย`);
+  }finally{
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    label.textContent = 'บันทึกและอัปเดตข้อมูล';
+  }
 }
 
 function cssVar(name){
