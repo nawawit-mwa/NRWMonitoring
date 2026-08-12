@@ -388,14 +388,12 @@ const SUMMARY_CSV_URL = 'dma_status_summary.csv'; // สถานะล่าส
 const IGNORE_CSV_URL  = 'rtu_ignore.csv';         // รายชื่อ RTU ที่ไม่ต้องการแสดงใน dashboard (optional,
                                                     // ไม่มีไฟล์นี้ = ไม่ซ่อนอะไรเลย) แก้ไขผ่าน Excel ได้เลย
                                                     // ต้องมีคอลัมน์ rtu_id เป็นอย่างน้อย (ดูตัวอย่างในไฟล์ template)
-const REMARK_SHEET_ID  = '1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs';   // Google Sheet: หมายเหตุต่อ RTU
+const REMARK_SHEET_ID  = '1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs';   // Google Sheet: หมายเหตุต่อ RTU (แบบเดิม)
 const REMARK_SHEET_GID = '0';
 const REMARK_CSV_URL = `https://docs.google.com/spreadsheets/d/${REMARK_SHEET_ID}/export?format=csv&gid=${REMARK_SHEET_GID}`;
-// ต้องแชร์ชีทเป็น "Anyone with the link (Viewer)" ไม่งั้น fetch จากเบราว์เซอร์จะโดนบล็อก (401/302 ไป login)
-// คอลัมน์ที่อ่าน: RTU_ID หรือ DM_ID (คีย์จับคู่กับ dma_code) + Remark_Text + Category (ทั้งสองเป็น optional
-// ต่อแถว แต่ต้องมีอย่างน้อยหนึ่งอันไม่ว่างถึงจะนับว่า "มีหมายเหตุ") — เป็น optional โดยเจตนา (เหมือน rtu_ignore.csv)
-// fetch ไม่ผ่าน/ชีทว่าง/ไม่มีคอลัมน์ที่ต้องการ = ไม่มี DM ไหน "มีหมายเหตุ" เลย ไม่ทำให้หน้าเว็บพัง
-// ⚠️ เลเยอร์นี้เป็นแค่ UI display เท่านั้น — ไม่กระทบการคำนวณ MNF/baseline/CUSUM ฝั่ง Python เลยแม้แต่นิดเดียว
+// ⚠️ ชุดค่าคงที่ REMARK_* / REMARK_CSV_URL ด้านบนนี้ไม่ได้ถูกใช้กำหนด "RTU มีหมายเหตุ" แล้ว (superseded) —
+// ตอนนี้ badge 📌 remark / ตัวกรอง / ตัวนับ KPI ทั่วทั้งหน้า อ่านจาก job_log ที่ยังไม่ปิดงานแทน (ดู
+// loadRemarksMapFromJobLog() ด้านล่าง) เก็บค่าคงที่ชุดนี้ไว้เฉยๆ เผื่ออยากย้อนกลับไปใช้ชีทเดิมในอนาคต
 const REFRESH_MINUTES = 5;                         // ความถี่ในการ fetch ไฟล์ใหม่ (มีผลเฉพาะตอน AUTO_REFRESH_ENABLED = true)
 const AUTO_REFRESH_ENABLED = true;                 // false = โหลดข้อมูลครั้งเดียวตอนเปิดหน้า ไม่ตั้ง setInterval รีเฟรชอัตโนมัติ
 const HISTORY_DAYS = 30;                           // จำนวนวันย้อนหลังที่ใช้แสดงผล (โหมดจำลองเท่านั้น)
@@ -411,14 +409,13 @@ const HISTORY_DAYS = 30;                           // จำนวนวัน�
 --------------------------------------------------------------------- */
 const JOB_SHEET_ID   = '1s18pk_eUVLAIdkAX3I3KLOF1VDmAZEin2xcqygbHzRs'; // Google Sheet เดียวกับ Remark (คนละแท็บ)
 const JOB_SHEET_NAME = 'job_log';
-const JOB_API_URL    = 'https://script.google.com/macros/s/AKfycbyDwcnc_RRAaeZ4VRTdSLqb-ROx-tyMQCw0wXjQZT2Euajmi7DjwTRFOG2BTqgoFBBQJA/exec';   // <<< ใส่ URL ของ Apps Script Web App หลัง deploy เช่น
-                              //     'https://script.google.com/macros/s/AKfycb.../exec'
-                              //     ปล่อยว่างไว้ = ทำงานในโหมดจำลอง (เก็บ log ไว้ในหน่วยความจำเบราว์เซอร์
-                              //     ชั่วคราวเท่านั้น ไม่ถาวร ไม่ sync ข้ามเครื่อง/ผู้ใช้ — ไว้เดโม UI ได้ก่อน backend พร้อม)
+const JOB_API_URL    = 'https://script.google.com/macros/s/AKfycbyDwcnc_RRAaeZ4VRTdSLqb-ROx-tyMQCw0wXjQZT2Euajmi7DjwTRFOG2BTqgoFBBQJA/exec';
+                              // Apps Script Web App ที่ deploy แล้ว — ใช้เชื่อมต่อ job_log จริงบน Google Sheets
+                              // (ปล่อยว่างไว้ '' = กลับไปทำงานโหมดจำลอง เก็บ log ในหน่วยความจำเบราว์เซอร์ชั่วคราวแทน)
 
 const ASSIGNEE_OPTIONS = ['ทีม สปน. สาขา','ทีม ฝจส.','ทีม บริหารข้อมูล'];
 const JOBSTATUS_OPTIONS = ['อยู่ระหว่างดำเนินการ','ดำเนินการแล้ว','ปิดงาน'];
-const JOBSTEP_OPTIONS = ['ตรวจสอบอุปกรณ์','ตรวจสอบภาคสนาม','ยกหีบประตูน้ำ','Step Testing','เดินสำรวจ Pin-Point','ดำเนินการซ่อมท่อ','ตรวจสอบ MNF หลังซ่อม'];
+const JOBSTEP_OPTIONS = ['ตรวจสอบ RTU','ตรวจสอบภาคสนาม','ยกหีบประตูน้ำ','Step Testing','เดินสำรวจ Pin-Point','ดำเนินการซ่อมท่อ','ตรวจสอบ MNF หลังซ่อม'];
 
 /* ---------------------------------------------------------------------
    DATA LAYER (fallback synthetic generator — โหมดจำลองเมื่อไม่พบไฟล์ CSV จริง)
@@ -734,6 +731,8 @@ function loadIgnoreList(url){
 }
 
 function loadRemarksMap(url){
+  // ⚠️ ฟังก์ชันนี้ไม่ได้ถูกเรียกใช้แล้ว (superseded โดย loadRemarksMapFromJobLog ด้านล่าง) — เก็บไว้เผื่อ
+  // อยากย้อนกลับไปอิงชีท remark เดิมแทน job_log ในอนาคต ไม่ได้ลบทิ้งเพื่อไม่ให้เสียของเดิม
   // Google Sheet หมายเหตุต่อ RTU — เป็น optional โดยเจตนาเหมือน loadIgnoreList: fetch ไม่ผ่าน/ชีทว่าง/
   // ไม่มีคอลัมน์ที่ต้องการ = ไม่มี DM ไหน "มีหมายเหตุ" เลย ไม่ throw ต่อ ไม่ทำให้ทั้งหน้าพัง
   // เลเยอร์นี้เป็น UI display เท่านั้น ไม่แตะการคำนวณ backend ใดๆ
@@ -752,6 +751,51 @@ function loadRemarksMap(url){
     .catch(() => ({}));
 }
 
+async function fetchAllJobLogs(){
+  // ดึง job_log "ทุกแถวทุก RTU" (ไม่ส่ง rtuId) มาใช้กำหนดว่า RTU ไหน "มีหมายเหตุ" ทั่วทั้งหน้า
+  // (ต่างจาก fetchJobLogs ที่ดึงเฉพาะ RTU เดียวไว้ใช้ในตาราง audit log ของ modal)
+  if(!JOB_API_URL){
+    return Object.values(jobLogMemoryStore).flat(); // โหมดจำลอง — รวม log ทุก RTU ที่มีใน memory ตอนนี้
+  }
+  try{
+    const res = await fetch(`${JOB_API_URL}?action=list`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if(json && json.ok === false) throw new Error(json.error || 'โหลด job_log ทั้งหมดไม่สำเร็จ');
+    return Array.isArray(json) ? json : (json.data || []);
+  }catch(err){
+    console.warn('โหลด job_log ทั้งหมดไม่สำเร็จ (ใช้กำหนด "มีหมายเหตุ" ทั่วทั้งหน้า):', err.message);
+    return [];
+  }
+}
+
+function loadRemarksMapFromJobLog(){
+  // "RTU มีหมายเหตุ" ทั่วทั้งหน้า (badge 📌 บนการ์ด/ตัวกรอง/ตัวนับ KPI) เปลี่ยนมาอิงจาก job_log แทนชีท
+  // remark เดิม: ดูสถานะของ "รายการล่าสุด" (ตาม timestamp) ต่อ RTU — ถ้ายังไม่ใช่ 'ปิดงาน' ถือว่า RTU นั้น
+  // "มีหมายเหตุ" (ยังมีงานค้าง/กำลังตรวจสอบอยู่) เป็น optional โดยเจตนาเช่นเดิม: fetch ไม่ผ่าน/ไม่มี log เลย
+  // = ไม่มี RTU ไหน "มีหมายเหตุ" เลย ไม่ throw ต่อ ไม่ทำให้ทั้งหน้าพัง
+  return fetchAllJobLogs().then(rows => {
+    const latestByRtu = {};
+    rows.forEach(r => {
+      const code = (r.rtuId || '').toString().trim();
+      if(!code) return;
+      const ts = new Date(r.timestamp).getTime();
+      const tsSafe = isNaN(ts) ? 0 : ts;
+      if(!latestByRtu[code] || tsSafe > latestByRtu[code]._ts){
+        latestByRtu[code] = { ...r, _ts: tsSafe };
+      }
+    });
+    const map = {};
+    Object.entries(latestByRtu).forEach(([code, row]) => {
+      if(row.status !== 'ปิดงาน'){   // ยังไม่ปิดงาน = ยังถือว่า "มีหมายเหตุ"
+        const metaParts = [row.status, row.jobStep].filter(Boolean);
+        map[code] = { text: row.remark || '', category: metaParts.join(' · ') };
+      }
+    });
+    return map;
+  }).catch(() => ({}));
+}
+
 /* ---------------------------------------------------------------------
    RENDER PIPELINE
 --------------------------------------------------------------------- */
@@ -761,9 +805,9 @@ let pipelineGeneratedAt = null;   // เวลาที่ prepare_dma_csv.py �
 const STATUS_LABEL = {alert:'แจ้งเตือน', watch:'เฝ้าระวัง', ok:'ปกติ', no_data:'ไม่มีข้อมูล', remark:'มีหมายเหตุ'};
 
 function dStatus(d){
-  // "สถานะที่ใช้แสดงผล/นับ KPI" — ถ้า DM มีหมายเหตุจาก Google Sheet ให้ถือเป็นกลุ่ม "มีหมายเหตุ" แทนสถานะเดิม
-  // (แจ้งเตือน/เฝ้าระวัง/ปกติ) เฉพาะตอนจัดกลุ่ม/กรอง/เรียงบนหน้าเว็บเท่านั้น — ไม่กระทบ d.a.status/case ที่มาจาก
-  // Python เลย (ยังคง badge สถานะเดิมโชว์คู่กับ badge หมายเหตุในตาราง/การ์ดตามปกติ)
+  // "สถานะที่ใช้แสดงผล/นับ KPI" — ถ้า DM มีหมายเหตุ (มีงานใน job_log ที่ยังไม่ปิดงาน) ให้ถือเป็นกลุ่ม
+  // "มีหมายเหตุ" แทนสถานะเดิม (แจ้งเตือน/เฝ้าระวัง/ปกติ) เฉพาะตอนจัดกลุ่ม/กรอง/เรียงบนหน้าเว็บเท่านั้น —
+  // ไม่กระทบ d.a.status/case ที่มาจาก Python เลย (ยังคง badge สถานะเดิมโชว์คู่กับ badge หมายเหตุตามปกติ)
   return d.a.hasRemark ? 'remark' : d.a.status;
 }
 
@@ -806,7 +850,7 @@ async function refreshFromCsv(isFirstLoad){
   try{
     const [flowRows, seriesRows, summaryRows, ignoreSet, remarksByDma] = await Promise.all([
       loadCsv(FLOW_CSV_URL), loadCsv(SERIES_CSV_URL), loadCsv(SUMMARY_CSV_URL), loadIgnoreList(IGNORE_CSV_URL),
-      loadRemarksMap(REMARK_CSV_URL),
+      loadRemarksMapFromJobLog(),   // "มีหมายเหตุ" มาจาก job_log ที่ยังไม่ปิดงานแล้ว (เดิมมาจากชีท remark แยกต่างหาก)
     ]);
     const hourlyByDma = hourlyFromFlowCsv(flowRows);
     const seriesByDma = seriesFromCsv(seriesRows);
@@ -1114,16 +1158,8 @@ function openModal(code){
   document.getElementById('jobStatus').value = '';
   document.getElementById('jobStep').value = '';
   document.getElementById('jobRemark').value = '';
+  document.getElementById('mRemarkPanel').style.display = 'none'; // จะถูกเซ็ตใหม่โดย updateRemarkPanelFromJobLog() หลัง fetchJobLogs โหลดเสร็จ
   fetchJobLogs(d.code);
-
-  const remarkPanel = document.getElementById('mRemarkPanel');
-  if(d.a.hasRemark){
-    remarkPanel.style.display = 'block';
-    document.getElementById('mRemarkCategory').textContent = d.a.remark.category ? ` · ${d.a.remark.category}` : '';
-    document.getElementById('mRemarkText').textContent = d.a.remark.text || '(ระบุแค่ Category ไม่มีข้อความหมายเหตุ)';
-  } else {
-    remarkPanel.style.display = 'none';
-  }
 
   if(d.a.status==='no_data'){
     // ไม่มีข้อมูลราย 15 นาที/รายวันให้ RTU นี้เลย (ถูกตัดออกจาก compute_metrics ตั้งแต่ต้น) — แสดงข้อความ
@@ -1315,9 +1351,31 @@ function fmtJobTimestamp(iso){
 }
 
 function jobStatusColor(status){
-  if(status === 'Fixed') return 'var(--green)';
-  if(status === 'Closed') return 'var(--gray)';
-  return 'var(--amber)'; // In Progress / ค่าอื่นๆ ที่ไม่รู้จัก
+  if(status === 'ดำเนินการแล้ว') return 'var(--green)';
+  if(status === 'ปิดงาน') return 'var(--gray)';
+  return 'var(--amber)'; // อยู่ระหว่างดำเนินการ / ค่าอื่นๆ ที่ไม่รู้จัก
+}
+
+/**
+ * ป้าย "หมายเหตุจากระบบ" ด้านบน modal เปลี่ยนมาใช้ฟิลด์ remark จากรายการ job_log
+ * ล่าสุด (เรียงตาม timestamp) ของ RTU ที่เปิดอยู่ แทนแหล่งข้อมูล Google Sheet เดิม
+ * (ไม่กระทบ badge "📌 remark" ที่การ์ด/ตัวกรอง/ตัวนับ KPI ซึ่งยังอิงชีท remark เดิมตามปกติ)
+ */
+function updateRemarkPanelFromJobLog(rtuId){
+  if(currentJobRtuId !== rtuId) return; // กันข้อมูลเก่าจาก fetch ที่ค้างมาทับ modal ที่เปิดใหม่แล้ว
+  const remarkPanel = document.getElementById('mRemarkPanel');
+  const catEl = document.getElementById('mRemarkCategory');
+  const textEl = document.getElementById('mRemarkText');
+
+  const latest = [...jobLogsCache].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+  if(!latest || latest.status === 'ปิดงาน'){   // ไม่มี log เลย หรือ งานล่าสุดปิดไปแล้ว = ไม่ต้องโชว์ panel นี้
+    remarkPanel.style.display = 'none';
+    return;
+  }
+  remarkPanel.style.display = 'block';
+  const metaParts = [latest.status, latest.jobStep].filter(Boolean);
+  catEl.textContent = ` · ${metaParts.length ? metaParts.join(' · ') + ' · ' : ''}${fmtJobTimestamp(latest.timestamp)}${latest._pending ? ' (กำลังบันทึก…)' : ''}`;
+  textEl.textContent = latest.remark && latest.remark.trim() ? latest.remark : '(บันทึกงานล่าสุดไม่มีข้อความรายละเอียด)';
 }
 
 async function fetchJobLogs(rtuId){
@@ -1330,7 +1388,7 @@ async function fetchJobLogs(rtuId){
   if(!JOB_API_URL){
     modeNote.style.display = 'block';
     jobLogsCache = jobLogMemoryStore[rtuId] ? [...jobLogMemoryStore[rtuId]] : [];
-    renderJobTable(jobLogsCache);
+    if(currentJobRtuId === rtuId){ renderJobTable(jobLogsCache); updateRemarkPanelFromJobLog(rtuId); }
     return;
   }
   modeNote.style.display = 'none';
@@ -1341,11 +1399,15 @@ async function fetchJobLogs(rtuId){
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if(json && json.ok === false) throw new Error(json.error || 'โหลดข้อมูลไม่สำเร็จ');
+    if(currentJobRtuId !== rtuId) return; // ผู้ใช้เปิด modal อื่นไปแล้วระหว่างรอ fetch — ไม่ต้องอัปเดตหน้าจอปัจจุบัน
     jobLogsCache = Array.isArray(json) ? json : (json.data || []);
     renderJobTable(jobLogsCache);
+    updateRemarkPanelFromJobLog(rtuId);
   }catch(err){
+    if(currentJobRtuId !== rtuId) return;
     jobLogsCache = [];
     tbody.innerHTML = `<tr><td colspan="5" class="job-log-empty" style="color:var(--red);">⚠️ โหลดประวัติไม่สำเร็จ (${escapeHtml(err.message)}) — ตรวจสอบว่า deploy Apps Script Web App แล้วและตั้งค่า JOB_API_URL ถูกต้อง</td></tr>`;
+    document.getElementById('mRemarkPanel').style.display = 'none';
   }
 }
 
@@ -1397,6 +1459,7 @@ async function submitJobLog(){
   const optimisticRow = { ...payload, _pending: true };
   jobLogsCache = [optimisticRow, ...jobLogsCache];
   renderJobTable(jobLogsCache);
+  updateRemarkPanelFromJobLog(currentJobRtuId); // แสดง remark ล่าสุดทันที (แถวที่เพิ่งกดบันทึก)
 
   try{
     if(JOB_API_URL){
@@ -1415,10 +1478,12 @@ async function submitJobLog(){
     }
     optimisticRow._pending = false;
     renderJobTable(jobLogsCache);
+    updateRemarkPanelFromJobLog(currentJobRtuId);
     remarkEl.value = '';
   }catch(err){
     jobLogsCache = jobLogsCache.filter(r => r !== optimisticRow);
     renderJobTable(jobLogsCache);
+    updateRemarkPanelFromJobLog(currentJobRtuId); // เอาแถวที่บันทึกไม่สำเร็จออกแล้ว ต้องคืนป้าย remark กลับไปเป็นแถวล่าสุดก่อนหน้า
     alert(`บันทึกไม่สำเร็จ: ${err.message}\nข้อมูลในฟอร์มยังอยู่ ลองกดบันทึกใหม่อีกครั้งได้เลย`);
   }finally{
     btn.disabled = false;
