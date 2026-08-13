@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบการดำเนินการ - Mockup</title>
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --border: #e2e8f0;
+            --bg-light: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --status-done: #dcfce7;
+            --status-done-text: #15803d;
+            --status-doing: #fef3c7;
+            --status-doing-text: #d97706;
+            --status-pending: #fee2e2;
+            --status-pending-text: #b91c1c;
+        }
+
+        body {
+            font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif;
+            background-color: #cbd5e1;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 90vh;
+        }
+
+        /* Modal Container */
+        .modal-container {
+            background: #fff;
+            width: 100%;
+            max-width: 900px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .modal-header {
+            background: #1e293b;
+            color: #fff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .badge-alert { background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; }
+        .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; }
+        .close-btn:hover { color: #fff; }
+
+        /* Navigation Tabs Header */
+        .tab-header {
+            display: flex; background: #f1f5f9; border-bottom: 1px solid var(--border);
+        }
+        .tab-btn {
+            padding: 12px 24px; border: none; background: none; cursor: pointer;
+            font-size: 0.95rem; font-weight: 600; color: var(--text-muted);
+            border-bottom: 3px solid transparent; transition: all 0.2s;
+        }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }
+
+        /* Body & Tabs Content */
+        .modal-body { padding: 20px; overflow-y: auto; max-height: 80vh; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Section Styling */
+        .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: var(--text-main); }
+        
+        /* Form Section */
+        .form-section {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full-width { grid-column: span 2; }
+        
+        label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+        input, select, textarea {
+            padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
+            font-size: 0.9rem; font-family: inherit; outline: none; background: #fff;
+            color: var(--text-main);
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
+        input[readonly] { background-color: #f1f5f9; color: #64748b; cursor: not-allowed; }
+
+        .form-actions { display: flex; justify-content: flex-end; }
+        .btn-submit {
+            background: var(--primary); color: white; border: none; padding: 10px 24px;
+            border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            font-size: 0.95rem; transition: background 0.2s;
+        }
+        .btn-submit:hover { background: var(--primary-hover); }
+
+        /* Log Table Section */
+        .log-section { background: #fff; }
+        .log-table-wrapper {
+            max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        th { background: #f1f5f9; padding: 10px 12px; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px 12px; border-top: 1px solid #f1f5f9; color: var(--text-main); }
+        
+        /* Status Badges */
+        .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .status-pending { background: var(--status-pending); color: var(--status-pending-text); }
+        .status-doing { background: var(--status-doing); color: var(--status-doing-text); }
+        .status-done { background: var(--status-done); color: var(--status-done-text); }
+    </style>
+</head>
+<body>
+
+    <div class="modal-container">
+        
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="modal-title">
+                <span>DMA-01 : พื้นที่สุขุมวิท</span>
+                <span class="badge-alert">🔴 Alert Case A</span>
+            </div>
+            <button class="close-btn">&times;</button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="tab-header">
+            <button class="tab-btn" onclick="switchTab('analytics')">📊 กราฟและข้อมูลวิเคราะห์</button>
+            <button class="tab-btn active" onclick="switchTab('action')">🛠️ การดำเนินการ</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+            
+            <!-- TAB 1: กราฟและข้อมูลวิเคราะห์ -->
+            <div id="tab-analytics" class="tab-content">
+                <p style="color: var(--text-muted); text-align: center; padding: 50px;">
+                    [ พื้นที่สำหรับแสดง กราฟ MNF 30 วัน, รูปแบบการไหล 15 นาที และกราฟแรงดัน ]
+                </p>
+            </div>
+
+            <!-- TAB 2: การดำเนินการ (ฟอร์มหลัก + Cascading Dropdown) -->
+            <div id="tab-action" class="tab-content active">
+                
+                <!-- ส่วนฟอร์มหลัก -->
+                <div class="form-section">
+                    <div class="section-title">📝 บันทึกข้อมูลการดำเนินการ</div>
+                    <form id="actionForm" onsubmit="handleFormSubmit(event)">
+                        <div class="form-grid">
+                            
+                            <!-- Dropdown 1: ขั้นตอนงานหลัก -->
+                            <div class="form-group full-width">
+                                <label for="categoryL1">1. ขั้นตอนงานหลัก</label>
+                                <select id="categoryL1" required onchange="handleCategoryChange()">
+                                    <option value="">-- กรุณาเลือกขั้นตอนหลัก --</option>
+                                    <option value="ตรวจสอบเครื่องวัดRTU">1. ตรวจสอบเครื่องวัด RTU</option>
+                                    <option value="ตรวจสอบภาคสนาม">2. ตรวจสอบภาคสนาม สปน.</option>
+                                    <option value="ดำเนินการซ่อมท่อประปา">3. ดำเนินการซ่อมท่อประปา</option>
+                                </select>
+                            </div>
+
+                            <!-- Dropdown 2: การดำเนินการ (เปลี่ยนตาม Dropdown 1 และอัตโนมัติ assign ผู้ดำเนินการ) -->
+                            <div class="form-group">
+                                <label for="taskL2">2. การดำเนินการ</label>
+                                <select id="taskL2" required disabled onchange="handleTaskChange()">
+                                    <option value="">-- เลือกขั้นตอนงานหลักก่อน --</option>
+                                </select>
+                            </div>
+                            <!-- สถานะงาน -->
+                            <div class="form-group">
+                                <label for="status">สถานะการดำเนินงาน</label>
+                                <select id="status" required>
+                                    <option value="Pending">🔴 รอดำเนินการ (Pending)</option>
+                                    <option value="In Progress" selected>🟡 กำลังดำเนินการ (In Progress)</option>
+                                    <option value="Completed">🟢 เสร็จสิ้น (Completed)</option>
+                                </select>
+                            </div>
+                            <!-- ผู้รับผิดชอบหลัก (Auto-fill ตาม Dropdown 1) -->
+                            <div class="form-group">
+                                <label for="assigneeTeam">ผู้รับผิดชอบหลัก</label>
+                                <input type="text" id="assigneeTeam" placeholder="ระบบระบุให้อัตโนมัติ" readonly />
+                            </div>
+
+                            <!-- ผู้ดำเนินการ (Auto-assign จากการเลือก การดำเนินการ) -->
+                            <div class="form-group">
+                                <label for="assigneeTeam2">ผู้ดำเนินการ/ผู้เกี่ยวข้อง</label>
+                                <input type="text" id="assigneeTeam2" placeholder="ระบบระบุให้อัตโนมัติ" readonly />
+                            </div>
+
+                           
+
+                            <!-- รายละเอียดการทำงาน -->
+                            <div class="form-group full-width">
+                                <label for="remark">รายละเอียด / ผลการดำเนินงาน / พิกัด</label>
+                                <textarea id="remark" rows="3" placeholder="ระบุรายละเอียดเพิ่มเติม พิกัดจุดเกิดเหตุ หรือผลการทดสอบหน้างาน..." required></textarea>
+                            </div>
+
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-submit">💾 บันทึกข้อมูลการดำเนินการ</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ส่วนประวัติการทำงาน (Audit Log Table) -->
+                <div class="log-section">
+                    <div class="section-title">📜 ประวัติการทำงาน (Audit Log)</div>
+                    <div class="log-table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>วัน-เวลา</th>
+                                    <th>ขั้นตอนงานหลัก</th>
+                                    <th>การดำเนินการ</th>
+                                    <th>ผู้รับผิดชอบหลัก</th>
+                                    <th>สถานะ</th>
+                                    <th>รายละเอียด</th>
+                                    <th>ผู้ดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logTableBody">
+                                <tr>
+                                    <td>13/08/26 09:15</td>
+                                    <td>ตรวจสอบภาคสนาม</td>
+                                    <td>ทดสอบ Step Test</td>
+                                    <td>ทีม สปน.</td>
+                                    <td><span class="status-badge status-doing">In Progress</span></td>
+                                    <td>บีบวงพื้นที่ซอย 4 พบอัตราการไหลยังสูงผิดปกติ</td>
+                                    <td>ทีม สปน.</td>
+                                </tr>
+                                <tr>
+                                    <td>13/08/26 08:30</td>
+                                    <td>ตรวจสอบภาคสนาม</td>
+                                    <td>ตรวจสอบ Pressure Gradiant</td>
+                                    <td>ทีม สปน.</td>
+                                    <td><span class="status-badge status-done">Completed</span></td>
+                                    <td>วัดแรงดันปลายท่อได้ 1.2 บาร์ ปกติ</td>
+                                    <td>ทีม สปน.</td>
+                                </tr>
+                                <tr>
+                                    <td>12/08/26 14:00</td>
+                                    <td>ตรวจสอบเครื่องวัดRTU</td>
+                                    <td>ตรวจระบบ Bios และสัญญาณ</td>
+                                    <td>ทีม บริษัทบริหารข้อมูล</td>
+                                    <td><span class="status-badge status-done">Completed</span></td>
+                                    <td>เปลี่ยนแบตเตอรี่และรีเซ็ตกล่อง RTU ส่งข้อมูลปกติแล้ว</td>
+                                    <td>ทีม บริษัทบริหารข้อมูล</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Script ควบคุม Tab, Cascading Dropdown, Auto-assign ผู้ดำเนินการ และการบันทึก Log -->
+    <script>
+        // โครงสร้างข้อมูลสำหรับแมปปิ้งขั้นตอนงานหลัก, การดำเนินการ และ Assign ผู้ดำเนินการ
+        const taskOptionsData = {
+            "ตรวจสอบเครื่องวัดRTU": {
+                team: "บริษัทบริหารข้อมูล",
+                tasks: [
+                    { name: "ตรวจระบบ Bios และสัญญาณ", assignee: "ทีมบริษัทบริหารข้อมูล" },
+                    { name: "สอบเทียบตัววัดแรงดันหน้างาน", assignee: "ทีมบริษัทบริหารข้อมูล" },
+                    { name: "ทดสอบมาตรวัดน้ำ", assignee: "ทีมบริษัทบริหารข้อมูล" },
+                    { name: "บันทึกการแก้ไขระบบส่งข้อมูล", assignee: "ทีมบริษัทบริหารข้อมูล" }
+                ]
+            },
+            "ตรวจสอบภาคสนาม": {
+                team: "สปน.",
+                tasks: [
+                    { name: "ตรวจประตูน้ำ GV/BDV", assignee: "ทีม สปน." },
+                    { name: "ทดสอบ Zero Pressure Test", assignee: "ทีม สปน." },
+                    { name: "ยืนยันผลการทดสอบ", assignee: "ทีม สปน." },
+                    { name: "ตรวจการใช้น้ำลูกค้ารายใหญ่", assignee: "ทีม สปน." },
+                    { name: "ตรวจการใช้น้ำสาธารณะ", assignee: "ทีม สปน." },
+                    { name: "สำรวจการลักลอบใช้น้ำ", assignee: "ทีม สปน." },
+                    { name: "ตรวจสอบ Pressure Gradiant", assignee: "ทีม สปน." },
+                    { name: "ตรวจความพร้อมของประตูน้ำ", assignee: "ทีม สปน." },
+                    { name: "ทดสอบ Step Test", assignee: "ทีม สปน." },
+                    { name: "สำรวจหาท่อรั่ว", assignee: "ทีม สปน." },
+                    { name: "แจ้ง สซท. ดำเนินการซ่อม", assignee: "ทีม สปน." },
+                    { name: "ประสานงาน สซท.", assignee: "ทีม สซท." },
+                    { name: "อื่นๆ", assignee: "ทีม สปน." }
+                ]
+            },
+            "ดำเนินการซ่อมท่อประปา": {
+                team: "สซท.",
+                tasks: [
+                    { name: "ประเมินหน้างาน", assignee: "ทีม ซ่อมท่อ" },
+                    { name: "ดำเนินการซ่อมท่อ", assignee: "ทีม ซ่อมท่อ" },
+                    { name: "อื่นๆ", assignee: "ทีม ซ่อมท่อ" }
+                ]
+            }
+        };
+
+        // ฟังก์ชันสลับ Tab
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById('tab-' + tabName).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // ฟังก์ชันจัดการ Cascading Dropdown เมื่อเลือก "1. ขั้นตอนงานหลัก"
+        function handleCategoryChange() {
+            const categorySelect = document.getElementById('categoryL1');
+            const taskSelect = document.getElementById('taskL2');
+            const teamInput = document.getElementById('assigneeTeam');
+            const assigneeSelect = document.getElementById('assigneeTeam2');
+
+            const selectedCategory = categorySelect.value;
+
+            // รีเซ็ต Dropdown 2 และ ผู้ดำเนินการ
+            taskSelect.innerHTML = '<option value="">-- กรุณาเลือกการดำเนินการ --</option>';
+            assigneeSelect.value = '';
+
+            if (selectedCategory && taskOptionsData[selectedCategory]) {
+                const data = taskOptionsData[selectedCategory];
+
+                // เติมทีมรับผิดชอบหลักให้อัตโนมัติ
+                teamInput.value = data.team;
+
+                // เติมตัวเลือกใน Dropdown 2 (การดำเนินการ)
+                data.tasks.forEach(taskObj => {
+                    const option = document.createElement('option');
+                    option.value = taskObj.name;
+                    option.textContent = taskObj.name;
+                    taskSelect.appendChild(option);
+                });
+
+                taskSelect.disabled = false;
+            } else {
+                taskSelect.disabled = true;
+                teamInput.value = '';
+            }
+        }
+
+        // ฟังก์ชันเมื่อเลือก "2. การดำเนินการ" -> อัปเดตและ Assign "ผู้ดำเนินการ" อัตโนมัติ
+        function handleTaskChange() {
+            const categorySelect = document.getElementById('categoryL1').value;
+            const taskSelect = document.getElementById('taskL2').value;
+            const assigneeSelect = document.getElementById('assigneeTeam2');
+
+            if (categorySelect && taskSelect && taskOptionsData[categorySelect]) {
+                const tasks = taskOptionsData[categorySelect].tasks;
+                const matchedTask = tasks.find(t => t.name === taskSelect);
+
+                if (matchedTask) {
+                    assigneeSelect.value = matchedTask.assignee;
+                }
+            }
+        }
+
+        // ฟังก์ชันเมื่อกดบันทึกฟอร์ม
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const categoryL1 = document.getElementById('categoryL1').value;
+            const taskL2 = document.getElementById('taskL2').value;
+            const team = document.getElementById('assigneeTeam').value;
+            const status = document.getElementById('status').value;
+            const assigneeSelect = document.getElementById('assigneeTeam2');
+            const executorText = assigneeSelect.options[assigneeSelect.selectedIndex].text;
+            const remark = document.getElementById('remark').value;
+
+            // สร้างเวลาปัจจุบัน
+            const now = new Date();
+            const timeStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth()+1).padStart(2, '0')}/${now.getFullYear().toString().substr(-2)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            // กำหนด CSS Class สำหรับ Badge ตามสถานะ
+            let statusBadgeClass = 'status-doing';
+            if (status === 'Completed') statusBadgeClass = 'status-done';
+            if (status === 'Pending') statusBadgeClass = 'status-pending';
+
+            // เพิ่มแถวใหม่บนสุดของตาราง Log (Optimistic UI Update)
+            const logTableBody = document.getElementById('logTableBody');
+            const newRow = document.createElement('tr');
+            
+            newRow.innerHTML = `
+                <td>${timeStr}</td>
+                <td>${categoryL1}</td>
+                <td>${taskL2}</td>
+                <td>${team}</td>
+                <td><span class="status-badge ${statusBadgeClass}">${status}</span></td>
+                <td>${remark}</td>
+                <td>${executorText}</td>
+            `;
+
+            logTableBody.insertBefore(newRow, logTableBody.firstChild);
+
+            // รีเซ็ตฟอร์ม
+            document.getElementById('remark').value = '';
+            alert('บันทึกข้อมูลการดำเนินการเรียบร้อยแล้ว!');
+        }
+    </script>
+</body>
+</html>
