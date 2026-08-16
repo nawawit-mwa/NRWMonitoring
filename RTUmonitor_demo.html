@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MWA - RTU Health Monitoring Dashboard</title>
+    <style>
+        /* CSS Reset & Basic Setup */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #F8FAFC; /* Light gray background */
+            color: #0F172A;
+            line-height: 1.5;
+            padding-bottom: 64px;
+        }
+
+        /* --- MWA Identity Colors --- */
+        :root {
+            --mwa-deep-blue: #065BAA;
+            --mwa-vivid-blue: #00C2F3;
+            --mwa-clear-blue: #ABE1FA;
+            --status-green-bg: #ECFDF5;
+            --status-green-text: #065F46;
+            --status-green-fill: #10B981;
+            --status-yellow-bg: #FFFBEB;
+            --status-yellow-text: #92400E;
+            --status-yellow-fill: #F59E0B;
+            --status-red-bg: #FEF2F2;
+            --status-red-text: #991B1B;
+            --status-red-fill: #EF4444;
+            --status-gray-bg: #F1F5F9;
+            --status-gray-text: #475569;
+            --status-gray-fill: #CBD5E1;
+        }
+
+        /* Typography - ปรับขนาดใหญ่ขึ้น */
+        h1 { font-size: 24px; font-weight: 600; color: #FFFFFF; }
+        h2 { font-size: 20px; font-weight: 600; color: #1E293B; margin-bottom: 16px; }
+        h3 { font-size: 18px; font-weight: 600; color: #0F172A; margin-bottom: 8px; }
+        p { color: #64748B; font-size: 15px; }
+        
+        /* Layout Container */
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 40px 32px 40px;
+        }
+
+        /* Header - MWA Branded */
+        header {
+            background-color: var(--mwa-deep-blue);
+            padding: 16px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 32px;
+        }
+        .mwa-logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .mwa-logo-mock {
+            width: 36px; height: 36px;
+            background: #FFFFFF;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 12px; font-weight: 700; color: var(--mwa-deep-blue);
+        }
+        .header-title-area p { margin-top: 2px; color: var(--mwa-clear-blue); }
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .last-update { font-size: 15px; color: #FFFFFF; opacity: 0.8; }
+        .btn-refresh {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            color: var(--mwa-deep-blue);
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 16px; /* ขยายขนาด */
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-refresh:hover { background: var(--mwa-clear-blue); border-color: var(--mwa-clear-blue); }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-top: 4px solid var(--mwa-clear-blue); /* Subtle identity highlight */
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-title {
+            font-size: 16px; /* ขยายขนาด Label */
+            font-weight: 600;
+            color: #64748B;
+            margin-bottom: 12px;
+        }
+        .card-value {
+            font-size: 36px; /* ขยายตัวเลขให้ชัดขึ้น */
+            font-weight: 600;
+            color: #0F172A;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        /* Table Section */
+        .table-container {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+            overflow: hidden;
+        }
+        .table-header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #F1F5F9;
+        }
+        .table-header-controls h2 { color: var(--mwa-deep-blue); margin-bottom: 0; }
+        .search-input {
+            padding: 10px 16px;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            width: 280px;
+            font-size: 16px; /* ขยายขนาด */
+            outline: none;
+        }
+        .search-input:focus { border-color: var(--mwa-vivid-blue); }
+        .filter-select {
+            padding: 10px 16px;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            font-size: 16px; /* ขยายขนาด */
+            background: #fff;
+            outline: none;
+            color: #334155;
+            cursor: pointer;
+        }
+        .filter-select:focus { border-color: var(--mwa-vivid-blue); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th {
+            background: var(--status-gray-bg);
+            color: var(--mwa-deep-blue);
+            font-size: 14px; /* ขยายจาก 12px เป็น 14px */
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 18px 24px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+        td {
+            padding: 18px 24px;
+            font-size: 16px; /* ขยายจาก 14px เป็น 16px */
+            color: #334155;
+            border-bottom: 1px solid #F1F5F9;
+            vertical-align: middle;
+        }
+        tbody tr {
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+        tbody tr:hover { background: var(--mwa-clear-blue); }
+        tbody tr:last-child td { border-bottom: none; }
+        
+        .rtu-name { font-weight: 600; color: var(--mwa-deep-blue); }
+        
+        /* Status Indicators */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px; /* ขยายป้ายสถานะ */
+            font-weight: 600;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-only {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Status Colors Class Mapping */
+        .bg-green { background-color: var(--status-green-bg); color: var(--status-green-text); }
+        .bg-yellow { background-color: var(--status-yellow-bg); color: var(--status-yellow-text); }
+        .bg-red { background-color: var(--status-red-bg); color: var(--status-red-text); }
+        .bg-gray { background-color: var(--status-gray-bg); color: var(--status-gray-text); }
+
+        .fill-green { background-color: var(--status-green-fill); }
+        .fill-yellow { background-color: var(--status-yellow-fill); }
+        .fill-red { background-color: var(--status-red-fill); }
+        .fill-gray { background-color: var(--status-gray-fill); }
+
+        /* Root Cause Column */
+        .root-cause { font-size: 15px; color: var(--status-gray-text); } /* ขยายฟอนต์ */
+
+        /* --- Side Panel --- */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 90;
+        }
+        .overlay.open { opacity: 1; pointer-events: auto; }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: -450px;
+            width: 420px;
+            height: 100vh;
+            background: #FFFFFF;
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+        .side-panel.open { right: 0; }
+        .panel-header {
+            padding: 24px;
+            background-color: var(--mwa-deep-blue);
+            color: #FFFFFF;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .panel-header h2 { color: #FFFFFF; font-size: 22px; }
+        .panel-overall-badge-area { margin-top: 8px; }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #FFFFFF;
+            opacity: 0.7;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-btn:hover { opacity: 1; }
+        .panel-body {
+            padding: 32px 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .panel-section { margin-bottom: 32px; }
+        
+        /* Pipeline View */
+        .pipeline { position: relative; margin-top: 16px; }
+        .pipeline::before {
+            content: '';
+            position: absolute;
+            top: 8px; bottom: 24px; left: 11px;
+            width: 2px; background: #E2E8F0; z-index: 0;
+        }
+        .pipeline-step {
+            display: flex; align-items: flex-start; margin-bottom: 24px;
+            position: relative; z-index: 1;
+        }
+        .pipeline-step:last-child { margin-bottom: 0; }
+        .step-indicator {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #FFFFFF; border: 2px solid #E2E8F0;
+            display: flex; justify-content: center; align-items: center;
+            margin-right: 16px; flex-shrink: 0;
+        }
+        .step-indicator .inner-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .step-content { flex: 1; padding-top: 0px; }
+        .step-name { font-size: 16px; font-weight: 600; color: #1E293B; margin-bottom: 4px; } /* ขยายฟอนต์ */
+        .step-desc { font-size: 14px; color: #64748B; } /* ขยายฟอนต์ */
+
+        @media (max-width: 1024px) {
+            .container { padding: 0 24px 24px 24px; }
+            .table-container { overflow-x: auto; }
+            table { min-width: 850px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header - MWA Branded -->
+    <header>
+        <div class="mwa-logo-area">
+            <div class="mwa-logo-mock">กปน.</div>
+            <div class="header-title-area">
+                <h1>การประปานครหลวง</h1>
+                <p>RTU Health Monitoring Dashboard</p>
+            </div>
+        </div>
+        <div class="header-controls">
+            <span class="last-update" id="last-update">อัปเดตล่าสุด: 21:43:12</span>
+            <button class="btn-refresh" onclick="refreshData()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.05l5.67-5.67"/></svg>
+                Refresh
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="card" style="border-top-color: var(--mwa-deep-blue);">
+                <span class="card-title">RTU ทั้งหมด</span>
+                <div class="card-value">248</div>
+            </div>
+            <div class="card" style="border-top-color: var(--status-green-fill);">
+                <span class="card-title">ปกติ (Healthy)</span>
+                <div class="card-value"><span class="status-dot fill-green"></span> 231</div>
+            </div>
+            <div class="card" style="border-top-color: var(--status-red-fill);">
+                <span class="card-title">ขัดข้อง (Failed)</span>
+                <div class="card-value"><span class="status-dot fill-red"></span> 8</div>
+            </div>
+            <div class="card" style="border-top-color: var(--status-gray-fill);">
+                <span class="card-title">ออฟไลน์ (Offline)</span>
+                <div class="card-value"><span class="status-dot fill-gray"></span> 9</div>
+            </div>
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-container">
+            <div class="table-header-controls">
+                <h2>สถานะ RTU รายตู้</h2>
+                <div style="display:flex; gap: 12px;">
+                    <input type="text" id="searchInput" class="search-input" placeholder="ค้นหา RTU..." oninput="filterTable()">
+                    <select id="statusFilter" class="filter-select" onchange="filterTable()">
+                        <option value="ALL">สถานะทั้งหมด</option>
+                        <option value="GREEN">Healthy</option>
+                        <option value="YELLOW">Data Warning</option>
+                        <option value="RED">Critical / Offline</option>
+                    </select>
+                </div>
+            </div>
+            <table id="rtuTable">
+                <thead>
+                    <tr>
+                        <th>RTU</th>
+                        <th>ภาพรวม</th>
+                        <th style="text-align:center;">Network</th>
+                        <th style="text-align:center;">SCADA</th>
+                        <th style="text-align:center;">FTP</th>
+                        <th style="text-align:center;">File Folder</th> <!-- เปลี่ยนชื่อ Column ที่นี่ -->
+                        <th style="text-align:center;">DB</th>
+                        <th style="text-align:center;">Data Quality</th>
+                        <th>สาเหตุหลัก</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data injected via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="overlay" id="overlay" onclick="closePanel()"></div>
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-header">
+            <div>
+                <h2 id="panel-rtu-name">RTU-001</h2>
+                <div id="panel-overall-badge-area"></div>
+            </div>
+            <button class="close-btn" onclick="closePanel()">&times;</button>
+        </div>
+        <div class="panel-body">
+            <div class="panel-section">
+                <h3>สาเหตุหลัก</h3>
+                <p id="panel-root-cause" style="color: var(--status-red-fill); font-weight: 600; font-size: 16px;"></p>
+            </div>
+            <div class="panel-section">
+                <h3> Pipeline Status</h3>
+                <div class="pipeline" id="pipeline-container">
+                    <!-- Pipeline steps injected via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Data based on requirements
+        const rawData = [
+            { id: 'RTU-001', network: 'GREEN', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'GREEN' },
+            { id: 'RTU-002', network: 'GREEN', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'GREEN' },
+            { id: 'RTU-003', network: 'RED', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'GREEN' },
+            { id: 'RTU-004', network: 'GREEN', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'YELLOW' },
+            { id: 'RTU-005', network: 'GREEN', scada: 'RED', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'GREEN' },
+            { id: 'RTU-006', network: 'GREEN', scada: 'GREEN', ftp: 'RED', save: 'GREEN', db: 'GREEN', dq: 'GREEN' },
+            { id: 'RTU-007', network: 'GREEN', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'GREEN' },
+            { id: 'RTU-008', network: 'GREEN', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'RED', dq: 'GREEN' },
+            { id: 'RTU-009', network: 'GREEN', scada: 'GREEN', ftp: 'GREEN', save: 'GREEN', db: 'GREEN', dq: 'YELLOW' },
+            { id: 'RTU-010', network: 'RED', scada: 'RED', ftp: 'RED', save: 'RED', db: 'RED', dq: 'RED' }, // Cascaded failure
+        ];
+
+        const pipelineSteps = ['network', 'scada', 'ftp', 'save', 'db', 'dq'];
+        // เปลี่ยน 'File Save' เป็น 'File Folder' ในอาเรย์ของชื่อ Step ด้านล่าง
+        const stepLabels = ['Network', 'SCADA', 'FTP Transfer', 'File Folder', 'DB Ingestion', 'Data Quality'];
+
+        // Process logic for cascading grays and overall status
+        const processedData = rawData.map(rtu => {
+            let processed = { id: rtu.id };
+            let cascadeGray = false;
+            let rootCause = "ทำงานปกติ (Healthy)";
+            let overall = "GREEN";
+
+            pipelineSteps.forEach(step => {
+                if (cascadeGray) {
+                    processed[step] = 'GRAY';
+                } else {
+                    let val = rtu[step];
+                    // DQ Rule: Data quality cannot be RED, only YELLOW
+                    if (step === 'dq' && val === 'RED') val = 'YELLOW';
+                    
+                    processed[step] = val;
+
+                    if (val === 'RED') {
+                        cascadeGray = true;
+                        overall = 'RED';
+                        if (step === 'network') rootCause = "Network Offline";
+                        else if (step === 'scada') rootCause = "SCADA Connection Failed";
+                        else if (step === 'ftp') rootCause = "FTP Transfer Failed";
+                        else if (step === 'save') rootCause = "File Folder Error"; // เปลี่ยนข้อความ Error ให้สอดคล้องกัน
+                        else if (step === 'db') rootCause = "Database Ingestion Failed";
+                    } else if (val === 'YELLOW' && overall === 'GREEN') {
+                        overall = 'YELLOW';
+                        rootCause = "Data Quality Warning";
+                    }
+                }
+            });
+
+            processed.overall = overall;
+            processed.rootCause = rootCause;
+            return processed;
+        });
+
+        // UI Helpers
+        const getBadgeHtml = (status) => {
+            if (status === 'GREEN') return `<span class="status-badge bg-green"><span class="status-dot fill-green"></span> ปกติ (Healthy)</span>`;
+            if (status === 'YELLOW') return `<span class="status-badge bg-yellow"><span class="status-dot fill-yellow"></span> แจ้งเตือน (Warning)</span>`;
+            if (status === 'RED') return `<span class="status-badge bg-red"><span class="status-dot fill-red"></span> ขัดข้อง (Critical)</span>`;
+            if (status === 'GRAY') return `<span class="status-badge bg-gray"><span class="status-dot fill-gray"></span> ออฟไลน์ (Offline)</span>`;
+            return '';
+        };
+
+        const getDotHtml = (status) => {
+            let colorClass = '';
+            if (status === 'GREEN') colorClass = 'fill-green';
+            if (status === 'YELLOW') colorClass = 'fill-yellow';
+            if (status === 'RED') colorClass = 'fill-red';
+            if (status === 'GRAY') colorClass = 'fill-gray';
+            return `<div class="dot-only"><span class="status-dot ${colorClass}"></span></div>`;
+        };
+        
+        const getStepDesc = (step, status, rootCause) => {
+             if (status === 'GRAY') return 'ข้ามขั้นตอนเนื่องจากระบบก่อนหน้าขัดข้อง';
+             if (status === 'GREEN') return 'ทำงานปกติ';
+             if (status === 'YELLOW' && step === 'dq') return 'พบแจ้งเตือนคุณภาพข้อมูล';
+             if (status === 'RED') return rootCause;
+             return '';
+        };
+
+        // Render Table
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            data.forEach((rtu, index) => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => openPanel(index);
+                tr.innerHTML = `
+                    <td class="rtu-name">${rtu.id}</td>
+                    <td>${getBadgeHtml(rtu.overall)}</td>
+                    <td>${getDotHtml(rtu.network)}</td>
+                    <td>${getDotHtml(rtu.scada)}</td>
+                    <td>${getDotHtml(rtu.ftp)}</td>
+                    <td>${getDotHtml(rtu.save)}</td>
+                    <td>${getDotHtml(rtu.db)}</td>
+                    <td>${getDotHtml(rtu.dq)}</td>
+                    <td class="root-cause">${rtu.rootCause}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Search & Filter
+        function filterTable() {
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+            const statusVal = document.getElementById('statusFilter').value;
+
+            const filtered = processedData.filter(rtu => {
+                const matchSearch = rtu.id.toLowerCase().includes(searchVal);
+                const matchStatus = statusVal === 'ALL' || rtu.overall === statusVal;
+                return matchSearch && matchStatus;
+            });
+
+            renderTable(filtered);
+        }
+
+        // Side Panel Logic
+        function openPanel(index) {
+            const tbody = document.getElementById('tableBody');
+            const rtuId = tbody.children[index].querySelector('.rtu-name').innerText;
+            const rtu = processedData.find(r => r.id === rtuId);
+
+            document.getElementById('panel-rtu-name').innerText = rtu.id;
+            document.getElementById('panel-overall-badge-area').innerHTML = getBadgeHtml(rtu.overall);
+            
+            const rcElem = document.getElementById('panel-root-cause');
+            rcElem.innerText = rtu.rootCause;
+            if (rtu.overall === 'GREEN') {
+                rcElem.style.color = 'var(--status-green-fill)';
+            } else if (rtu.overall === 'YELLOW') {
+                rcElem.style.color = 'var(--status-yellow-fill)';
+            } else {
+                rcElem.style.color = 'var(--status-red-fill)';
+            }
+
+            const pipelineContainer = document.getElementById('pipeline-container');
+            pipelineContainer.innerHTML = '';
+
+            pipelineSteps.forEach((step, i) => {
+                const status = rtu[step];
+                let colorClass = 'fill-gray';
+                let borderColor = '#E2E8F0';
+                
+                if (status === 'GREEN') { colorClass = 'fill-green'; borderColor = '#10B981'; }
+                if (status === 'YELLOW') { colorClass = 'fill-yellow'; borderColor = '#F59E0B'; }
+                if (status === 'RED') { colorClass = 'fill-red'; borderColor = '#EF4444'; }
+
+                pipelineContainer.innerHTML += `
+                    <div class="pipeline-step">
+                        <div class="step-indicator" style="border-color: ${borderColor}">
+                            <div class="inner-dot ${colorClass}"></div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-name">${stepLabels[i]}</div>
+                            <div class="step-desc">${getStepDesc(step, status, rtu.rootCause)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('sidePanel').classList.add('open');
+            document.getElementById('overlay').classList.add('open');
+        }
+
+        function closePanel() {
+            document.getElementById('sidePanel').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+        }
+
+        function refreshData() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('th-TH', { hour12: false });
+            document.getElementById('last-update').innerText = 'อัปเดตล่าสุด: ' + timeStr;
+            
+            // Add a brief opacity effect to table to simulate load
+            const tbody = document.getElementById('tableBody');
+            tbody.style.opacity = '0.5';
+            setTimeout(() => { tbody.style.opacity = '1'; }, 300);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTable(processedData);
+        });
+
+    </script>
+</body>
+</html>
