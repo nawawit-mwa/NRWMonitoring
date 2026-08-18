@@ -143,6 +143,7 @@ tbody tr:last-child td { border-bottom: none; }
 .fill-gray { background-color: var(--status-gray-fill); }
 
 .fp-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.fp-col { text-align: center; }
 .fp-cell .fp-mid { font-weight: 600; color: #0F172A; }
 .fp-cell .fp-sep { color: #CBD5E1; padding: 0 3px; }
 .fp-cell .fp-side { color: #64748B; }
@@ -271,7 +272,7 @@ tbody tr:last-child td { border-bottom: none; }
                     <tr>
                         <th class="grp" colspan="2"></th>
                         <th class="grp grp-now sep-left" colspan="2">สถานะปัจจุบัน</th>
-                        <th class="grp grp-daily sep-left" colspan="4">รอบรายวันล่าสุด</th>
+                        <th class="grp grp-daily sep-left" colspan="3">รอบรายวันล่าสุด</th>
                         <th class="grp grp-value sep-left" colspan="2">ค่าของวันล่าสุด</th>
                     </tr>
                     <tr>
@@ -279,16 +280,15 @@ tbody tr:last-child td { border-bottom: none; }
                         <th>ภาพรวม</th>
                         <th class="sep-left" style="text-align:center;">Network</th>
                         <th style="text-align:center;">SCADA</th>
-                        <th class="sep-left" style="text-align:center;">FTP</th>
-                        <th style="text-align:center;">File Folder</th>
-                        <th style="text-align:center;">WLMA</th>
+                        <th class="sep-left" style="text-align:center;">FTP (DR)</th>
+                        <th style="text-align:center;">WLMA (File &amp; DB)</th>
                         <th style="text-align:center;">Data Quality</th>
-                        <th class="sep-left">Flow<span class="unit">m³/hr · min / avg / max</span></th>
-                        <th>Pressure<span class="unit">เมตร · min / avg / max</span></th>
+                        <th class="sep-left" style="text-align:center;">Flow<span class="unit">m³/hr · min / avg / max</span></th>
+                        <th style="text-align:center;">Pressure<span class="unit">เมตร · min / avg / max</span></th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr class="state-row"><td colspan="10">กำลังโหลดข้อมูล...</td></tr>
+                    <tr class="state-row"><td colspan="9">กำลังโหลดข้อมูล...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -350,7 +350,7 @@ tbody tr:last-child td { border-bottom: none; }
 
    ฟิลด์ที่ระบบคาดหวังจาก action=status
      rtu_id, rtu_name, branch_id, branch_name, region, zone_id, dma_code,
-     network, scada, ftp, folder, wlma, dq,
+     network, scada, ftp, wlma, dq,
      flow_min, flow_avg, flow_max, press_min, press_avg, press_max,
      realtime_at, daily_date
    ฟิลด์ที่ระบบคาดหวังจาก action=history
@@ -371,16 +371,16 @@ const STEP_GROUPS = [
     { key: 'now',   title: 'สถานะปัจจุบัน',  cascade: true,
       steps: [ { key: 'network', label: 'Network' }, { key: 'scada', label: 'SCADA' } ] },
     { key: 'daily', title: 'รอบรายวันล่าสุด', cascade: true,
-      steps: [ { key: 'ftp', label: 'FTP Transfer' }, { key: 'folder', label: 'File Folder' },
-               { key: 'wlma', label: 'WLMA' }, { key: 'dq', label: 'Data Quality' } ] }
+      steps: [ { key: 'ftp', label: 'FTP Transfer ที่ DR SITE' },
+               { key: 'wlma', label: 'WLMA (File & DB)' },
+               { key: 'dq', label: 'Data Quality' } ] }
 ];
 const ALL_STEPS = STEP_GROUPS.flatMap(g => g.steps.map(s => s.key));
 
 const CAUSE_TEXT = {
     network: { RED: 'เครือข่ายขาดการเชื่อมต่อ',       YELLOW: 'สัญญาณเครือข่ายไม่เสถียร' },
     scada:   { RED: 'SCADA ไม่ได้รับค่าจากตู้',       YELLOW: 'SCADA ได้รับค่าล่าช้ากว่ากำหนด' },
-    ftp:     { RED: 'ส่งไฟล์ FTP ไม่สำเร็จ',          YELLOW: 'ส่งไฟล์ FTP ล่าช้า' },
-    folder:  { RED: 'ไม่พบไฟล์ในโฟลเดอร์ปลายทาง',     YELLOW: 'ไฟล์ในโฟลเดอร์ไม่ครบ' },
+    ftp:     { RED: 'ส่งไฟล์ไปยัง DR SITE ไม่สำเร็จ', YELLOW: 'ส่งไฟล์ไปยัง DR SITE ล่าช้า' },
     wlma:    { RED: 'นำเข้าข้อมูลสู่ WLMA ไม่สำเร็จ',  YELLOW: 'นำเข้าข้อมูลสู่ WLMA ไม่ครบ' },
     dq:      { RED: 'ข้อมูลผิดปกติรุนแรง',            YELLOW: 'พบข้อสังเกตด้านคุณภาพข้อมูล' }
 };
@@ -421,11 +421,10 @@ function buildMockRTU() {
                 const row = { rtu_id: id, rtu_name: '', branch_id: br, branch_name: name,
                               region: region, zone_id: pad2(z), dma_code: `DM-${br}-${pad2(z)}-${pad2(d)}`,
                               network: 'GREEN', scada: 'GREEN', ftp: 'GREEN',
-                              folder: 'GREEN', wlma: 'GREEN', dq: 'GREEN' };
+                              wlma: 'GREEN', dq: 'GREEN' };
                 if (roll > 0.94)      row.network = 'RED';
                 else if (roll > 0.90) row.scada   = 'RED';
                 else if (roll > 0.87) row.ftp     = 'RED';
-                else if (roll > 0.85) row.folder  = 'RED';
                 else if (roll > 0.83) row.wlma    = 'RED';
                 else if (roll > 0.80) row.dq      = 'RED';
                 else if (roll > 0.72) row.dq      = 'YELLOW';
@@ -560,7 +559,7 @@ function normalizeStatusRow(r) {
         branch_id: String(r.branch_id || ''), branch_name: r.branch_name || '',
         region: r.region || '', zone_id: String(r.zone_id || ''), dma_code: r.dma_code || '',
         network: st(r.network), scada: st(r.scada), ftp: st(r.ftp),
-        folder: st(r.folder), wlma: st(r.wlma), dq: st(r.dq),
+        wlma: st(r.wlma), dq: st(r.dq),
         flow_min: num(r.flow_min), flow_avg: num(r.flow_avg), flow_max: num(r.flow_max),
         press_min: num(r.press_min), press_avg: num(r.press_avg), press_max: num(r.press_max),
         realtime_at: r.realtime_at || '', daily_date: r.daily_date || ''
@@ -755,7 +754,7 @@ function renderTable() {
     if (currentPage > totalPages) currentPage = totalPages;
 
     if (!viewData.length) {
-        tbody.innerHTML = '<tr class="state-row"><td colspan="10">ไม่พบ RTU ที่ตรงกับเงื่อนไข</td></tr>';
+        tbody.innerHTML = '<tr class="state-row"><td colspan="9">ไม่พบ RTU ที่ตรงกับเงื่อนไข</td></tr>';
     } else {
         const start = (currentPage - 1) * size;
         tbody.innerHTML = viewData.slice(start, start + size).map(r => {
@@ -765,12 +764,11 @@ function renderTable() {
                 <td>${badgeHtml(r)}</td>
                 <td class="sep-left">${dotHtml(r.network, 'Network')}</td>
                 <td>${dotHtml(r.scada, 'SCADA')}</td>
-                <td class="sep-left">${dotHtml(r.ftp, 'FTP')}</td>
-                <td>${dotHtml(r.folder, 'File Folder')}</td>
-                <td>${dotHtml(r.wlma, 'WLMA')}</td>
+                <td class="sep-left">${dotHtml(r.ftp, 'FTP (DR)')}</td>
+                <td>${dotHtml(r.wlma, 'WLMA (File & DB)')}</td>
                 <td>${dotHtml(r.dq, 'Data Quality')}</td>
-                <td class="sep-left">${fpCell(r.flow_min, r.flow_avg, r.flow_max, r.hasValues)}</td>
-                <td>${fpCell(r.press_min, r.press_avg, r.press_max, r.hasValues)}</td>
+                <td class="sep-left fp-col">${fpCell(r.flow_min, r.flow_avg, r.flow_max, r.hasValues)}</td>
+                <td class="fp-col">${fpCell(r.press_min, r.press_avg, r.press_max, r.hasValues)}</td>
             </tr>`;
         }).join('');
     }
@@ -1005,7 +1003,7 @@ async function loadAll() {
     const btn = document.getElementById('btnRefresh');
     btn.disabled = true;
     document.getElementById('tableBody').innerHTML =
-        '<tr class="state-row"><td colspan="10">กำลังโหลดข้อมูล...</td></tr>';
+        '<tr class="state-row"><td colspan="9">กำลังโหลดข้อมูล...</td></tr>';
     try {
         const raw = await DataSource.getStatus();
         metaCache = await DataSource.getMeta(raw);
@@ -1015,7 +1013,7 @@ async function loadAll() {
         applyFilter();
     } catch (e) {
         document.getElementById('tableBody').innerHTML =
-            `<tr class="state-row"><td colspan="10">โหลดข้อมูลไม่สำเร็จ (${e.message}) — ตรวจสอบค่าใน CONFIG แล้วกดรีเฟรชอีกครั้ง</td></tr>`;
+            `<tr class="state-row"><td colspan="9">โหลดข้อมูลไม่สำเร็จ (${e.message}) — ตรวจสอบค่าใน CONFIG แล้วกดรีเฟรชอีกครั้ง</td></tr>`;
         document.getElementById('pageInfo').textContent = '-';
         document.getElementById('pageControls').innerHTML = '';
     } finally {
