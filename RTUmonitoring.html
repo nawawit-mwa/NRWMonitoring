@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MWA - RTU Health Monitoring Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+body { background-color: #F8FAFC; color: #0F172A; line-height: 1.5; padding-bottom: 64px; }
+
+:root {
+    --mwa-deep-blue: #065BAA;
+    --mwa-vivid-blue: #00C2F3;
+    --mwa-clear-blue: #ABE1FA;
+    --status-green-bg: #ECFDF5; --status-green-text: #065F46; --status-green-fill: #10B981;
+    --status-yellow-bg: #FFFBEB; --status-yellow-text: #92400E; --status-yellow-fill: #F59E0B;
+    --status-red-bg: #FEF2F2;   --status-red-text: #991B1B;   --status-red-fill: #EF4444;
+    --status-gray-bg: #F1F5F9;  --status-gray-text: #475569;  --status-gray-fill: #CBD5E1;
+}
+
+h1 { font-size: 24px; font-weight: 600; color: #FFFFFF; }
+h2 { font-size: 20px; font-weight: 600; color: #1E293B; margin-bottom: 16px; }
+p { color: #64748B; font-size: 15px; }
+
+.container { max-width: 1520px; margin: 0 auto; padding: 0 32px 32px 32px; }
+
+header {
+    background-color: var(--mwa-deep-blue); padding: 16px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 28px; flex-wrap: wrap; gap: 16px;
+}
+.mwa-logo-area { display: flex; align-items: center; gap: 12px; }
+.mwa-logo-mock {
+    width: 36px; height: 36px; background: #FFFFFF; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 12px; font-weight: 700; color: var(--mwa-deep-blue); flex-shrink: 0;
+}
+.header-title-area p { margin-top: 2px; color: var(--mwa-clear-blue); }
+.header-controls { display: flex; align-items: center; gap: 20px; }
+.time-block { text-align: right; color: #FFFFFF; font-size: 14px; line-height: 1.6; }
+.time-block .time-label { color: var(--mwa-clear-blue); }
+.btn-refresh {
+    background: #FFFFFF; border: 1px solid #E2E8F0; color: var(--mwa-deep-blue);
+    padding: 10px 18px; border-radius: 6px; font-size: 16px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+}
+.btn-refresh:hover { background: var(--mwa-clear-blue); border-color: var(--mwa-clear-blue); }
+.btn-refresh:disabled { opacity: 0.6; cursor: default; }
+
+/* ---- summary cards ---- */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; margin-bottom: 24px; }
+.card {
+    background: #FFFFFF; border: 1px solid #E2E8F0; border-top: 4px solid var(--mwa-clear-blue);
+    border-radius: 8px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    display: flex; flex-direction: column; cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
+.card:focus-visible { outline: 2px solid var(--mwa-vivid-blue); outline-offset: 2px; }
+.card.active { border-color: var(--mwa-deep-blue); box-shadow: 0 0 0 2px var(--mwa-clear-blue); }
+.card-title { font-size: 15px; font-weight: 600; color: #64748B; margin-bottom: 10px; }
+.card-value { font-size: 34px; font-weight: 600; color: #0F172A; display: flex; align-items: center; gap: 10px; }
+.card-hint { font-size: 12px; color: var(--mwa-deep-blue); font-weight: 500; margin-top: 6px; visibility: hidden; }
+.card.active .card-hint { visibility: visible; }
+
+/* ---- group chips (ภาค / สาขา) ---- */
+.group-block {
+    background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px;
+    padding: 16px 20px; margin-bottom: 18px;
+}
+.group-head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.group-label { font-size: 13px; font-weight: 700; color: var(--mwa-deep-blue); letter-spacing: 0.06em; }
+.group-note { font-size: 13px; color: #94A3B8; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+    border: 1px solid #E2E8F0; border-radius: 8px; background: #FFFFFF;
+    padding: 9px 14px; min-width: 118px; cursor: pointer; text-align: left;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.chip:hover { border-color: var(--mwa-vivid-blue); transform: translateY(-1px); }
+.chip:focus-visible { outline: 2px solid var(--mwa-vivid-blue); outline-offset: 2px; }
+.chip.active { border-color: var(--mwa-deep-blue); box-shadow: 0 0 0 2px var(--mwa-clear-blue); }
+.chip-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.chip-name { font-size: 15px; font-weight: 600; color: #1E293B; }
+.chip-count { font-size: 14px; color: #64748B; font-variant-numeric: tabular-nums; }
+.chip-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; margin-top: 8px; background: #F1F5F9; }
+.chip-bar span { display: block; height: 100%; }
+.chip-issue { font-size: 12px; color: #94A3B8; margin-top: 6px; }
+.chip-issue b { color: var(--status-red-text); font-weight: 600; }
+
+/* ---- table ---- */
+.table-container { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); overflow: hidden; }
+.table-header-controls { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid #F1F5F9; gap: 12px; flex-wrap: wrap; }
+.table-header-controls h2 { color: var(--mwa-deep-blue); margin-bottom: 0; }
+.filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.search-input, .filter-select {
+    padding: 9px 14px; border: 1px solid #E2E8F0; border-radius: 6px;
+    font-size: 15px; outline: none; color: #334155; background: #fff;
+}
+.search-input { width: 240px; }
+.filter-select { cursor: pointer; }
+.search-input:focus, .filter-select:focus { border-color: var(--mwa-vivid-blue); }
+.btn-clear {
+    padding: 9px 14px; border: 1px solid #E2E8F0; background: #FFFFFF; border-radius: 6px;
+    font-size: 15px; color: #64748B; cursor: pointer;
+}
+.btn-clear:hover { background: var(--status-gray-bg); color: #334155; }
+
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1140px; }
+th {
+    background: var(--status-gray-bg); color: var(--mwa-deep-blue);
+    font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 11px 14px; border-bottom: 1px solid #E2E8F0; vertical-align: middle;
+}
+th.grp { text-align: center; font-size: 12px; text-transform: uppercase; padding: 9px 14px; background: #E8EEF5; color: #334155; letter-spacing: 0.08em; }
+th.grp-now { background: #E6F4FB; }
+th.grp-daily { background: #EDEBF7; }
+th.grp-value { background: #EAF2E6; }
+th .unit { display: block; font-size: 11px; font-weight: 500; color: #64748B; letter-spacing: 0; text-transform: none; margin-top: 2px; }
+.sep-left { border-left: 1px solid #E2E8F0; }
+
+td { padding: 13px 14px; font-size: 15px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
+tbody tr { transition: background 0.15s; cursor: pointer; }
+tbody tr:hover { background: #F0F9FF; }
+tbody tr:last-child td { border-bottom: none; }
+.rtu-name { font-weight: 600; color: var(--mwa-deep-blue); white-space: nowrap; }
+.rtu-name small { display: block; font-weight: 400; color: #94A3B8; font-size: 12.5px; }
+
+.status-badge { display: inline-flex; align-items: center; padding: 5px 11px; border-radius: 20px; font-size: 13.5px; font-weight: 600; gap: 6px; white-space: nowrap; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot-only { display: flex; justify-content: center; align-items: center; }
+.bg-green { background-color: var(--status-green-bg); color: var(--status-green-text); }
+.bg-yellow { background-color: var(--status-yellow-bg); color: var(--status-yellow-text); }
+.bg-red { background-color: var(--status-red-bg); color: var(--status-red-text); }
+.bg-gray { background-color: var(--status-gray-bg); color: var(--status-gray-text); }
+.fill-green { background-color: var(--status-green-fill); }
+.fill-yellow { background-color: var(--status-yellow-fill); }
+.fill-red { background-color: var(--status-red-fill); }
+.fill-gray { background-color: var(--status-gray-fill); }
+
+.fp-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fp-cell .fp-mid { font-weight: 600; color: #0F172A; }
+.fp-cell .fp-sep { color: #CBD5E1; padding: 0 3px; }
+.fp-cell .fp-side { color: #64748B; }
+.fp-cell.empty { color: #CBD5E1; }
+.state-row td { text-align: center; padding: 40px 16px; color: #64748B; font-size: 16px; }
+
+.pagination { display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; border-top: 1px solid #F1F5F9; gap: 12px; flex-wrap: wrap; }
+.page-info { font-size: 15px; color: #64748B; }
+.page-controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.page-btn { min-width: 36px; height: 36px; padding: 0 10px; border: 1px solid #E2E8F0; background: #FFFFFF; border-radius: 6px; font-size: 15px; color: #334155; cursor: pointer; }
+.page-btn:hover:not(:disabled):not(.active) { background: var(--status-gray-bg); }
+.page-btn.active { background: var(--mwa-deep-blue); border-color: var(--mwa-deep-blue); color: #FFFFFF; font-weight: 600; }
+.page-btn:disabled { opacity: 0.4; cursor: default; }
+.page-gap { color: #94A3B8; padding: 0 2px; }
+.page-jump { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #64748B; margin-left: 6px; }
+.page-jump input { width: 62px; padding: 7px 8px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 14px; text-align: center; outline: none; }
+.page-jump input:focus { border-color: var(--mwa-vivid-blue); }
+
+/* ---- modal ---- */
+.overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 90; }
+.overlay.open { opacity: 1; pointer-events: auto; }
+.modal-wrap { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+.modal-wrap.open { opacity: 1; pointer-events: auto; }
+.modal { background: #FFFFFF; border-radius: 10px; width: 100%; max-width: 960px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.18); transform: translateY(12px); transition: transform 0.25s ease; }
+.modal-wrap.open .modal { transform: translateY(0); }
+.modal-header { padding: 20px 24px; background-color: var(--mwa-deep-blue); color: #FFFFFF; display: flex; justify-content: space-between; align-items: flex-start; border-radius: 10px 10px 0 0; }
+.modal-header h2 { color: #FFFFFF; font-size: 22px; margin-bottom: 6px; }
+.modal-header .sub { color: var(--mwa-clear-blue); font-size: 14px; margin-top: 6px; }
+.close-btn { background: none; border: none; font-size: 28px; color: #FFFFFF; opacity: 0.75; cursor: pointer; line-height: 1; padding: 0 4px; }
+.close-btn:hover { opacity: 1; }
+.modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+.modal-grid { display: grid; grid-template-columns: 320px 1fr; gap: 28px; align-items: start; }
+.panel-section { margin-bottom: 24px; }
+.panel-section:last-child { margin-bottom: 0; }
+.section-label { font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.cause-list { list-style: none; }
+.cause-list li { font-size: 15px; font-weight: 500; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; }
+.cause-list li:last-child { margin-bottom: 0; }
+.pipe-group { margin-bottom: 20px; }
+.pipe-group:last-child { margin-bottom: 0; }
+.pipe-group-title { font-size: 13px; font-weight: 700; color: var(--mwa-deep-blue); }
+.pipe-group-time { font-size: 12px; color: #94A3B8; margin-bottom: 12px; }
+.pipeline { position: relative; }
+.pipeline::before { content: ''; position: absolute; top: 10px; bottom: 22px; left: 11px; width: 2px; background: #E2E8F0; z-index: 0; }
+.pipeline-step { display: flex; align-items: flex-start; margin-bottom: 18px; position: relative; z-index: 1; }
+.pipeline-step:last-child { margin-bottom: 0; }
+.step-indicator { width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; border: 2px solid #E2E8F0; display: flex; justify-content: center; align-items: center; margin-right: 14px; flex-shrink: 0; }
+.step-indicator .inner-dot { width: 10px; height: 10px; border-radius: 50%; }
+.step-name { font-size: 15px; font-weight: 600; color: #1E293B; }
+.step-desc { font-size: 13px; color: #64748B; margin-top: 2px; }
+.chart-card { border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px 18px 12px 18px; margin-bottom: 20px; }
+.chart-card:last-child { margin-bottom: 0; }
+.chart-title { font-size: 16px; font-weight: 600; color: #1E293B; }
+.chart-sub { font-size: 13px; color: #94A3B8; margin-bottom: 12px; }
+.chart-box { position: relative; height: 210px; }
+.chart-empty { height: 210px; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 15px; background: var(--status-gray-bg); border-radius: 6px; }
+
+@media (max-width: 900px) { .modal-grid { grid-template-columns: 1fr; gap: 20px; } }
+@media (max-width: 1024px) { .container { padding: 0 16px 24px 16px; } header { padding: 16px 16px; } .search-input { width: 170px; } }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="mwa-logo-area">
+        <div class="mwa-logo-mock">กปน.</div>
+        <div class="header-title-area">
+            <h1>การประปานครหลวง</h1>
+            <p>RTU Health Monitoring Dashboard</p>
+        </div>
+    </div>
+    <div class="header-controls">
+        <div class="time-block">
+            <div><span class="time-label">สถานะปัจจุบัน:</span> <span id="time-realtime">-</span></div>
+            <div><span class="time-label">รอบรายวันล่าสุด:</span> <span id="time-daily">-</span></div>
+        </div>
+        <button class="btn-refresh" id="btnRefresh" onclick="loadAll()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+            รีเฟรช
+        </button>
+    </div>
+</header>
+
+<div class="container">
+
+    <div class="group-block">
+        <div class="group-head">
+            <span class="group-label">ภาค</span>
+            <span class="group-note" id="regionNote"></span>
+        </div>
+        <div class="chip-row" id="regionChips"></div>
+    </div>
+
+    <div class="group-block">
+        <div class="group-head">
+            <span class="group-label">สาขา</span>
+            <span class="group-note" id="branchNote"></span>
+        </div>
+        <div class="chip-row" id="branchChips"></div>
+    </div>
+
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <div class="table-container">
+        <div class="table-header-controls">
+            <h2>สถานะ RTU รายตู้</h2>
+            <div class="filter-row">
+                <input type="text" id="searchInput" class="search-input" placeholder="ค้นหารหัสตู้ / DMA..." oninput="applyFilter()">
+                <select id="zoneFilter" class="filter-select" onchange="applyFilter()">
+                    <option value="ALL">ทุกโซน</option>
+                </select>
+                <select id="statusFilter" class="filter-select" onchange="applyFilter()">
+                    <option value="ALL">สถานะทั้งหมด</option>
+                    <option value="GREEN">ปกติ</option>
+                    <option value="YELLOW">แจ้งเตือน</option>
+                    <option value="RED">ขัดข้อง</option>
+                    <option value="GRAY">ออฟไลน์</option>
+                </select>
+                <button class="btn-clear" onclick="clearFilters()">ล้างตัวกรอง</button>
+            </div>
+        </div>
+
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="grp" colspan="2"></th>
+                        <th class="grp grp-now sep-left" colspan="2">สถานะปัจจุบัน</th>
+                        <th class="grp grp-daily sep-left" colspan="4">รอบรายวันล่าสุด</th>
+                        <th class="grp grp-value sep-left" colspan="2">ค่าของวันล่าสุด</th>
+                    </tr>
+                    <tr>
+                        <th>RTU</th>
+                        <th>ภาพรวม</th>
+                        <th class="sep-left" style="text-align:center;">Network</th>
+                        <th style="text-align:center;">SCADA</th>
+                        <th class="sep-left" style="text-align:center;">FTP</th>
+                        <th style="text-align:center;">File Folder</th>
+                        <th style="text-align:center;">WLMA</th>
+                        <th style="text-align:center;">Data Quality</th>
+                        <th class="sep-left">Flow<span class="unit">m³/hr · min / avg / max</span></th>
+                        <th>Pressure<span class="unit">เมตร · min / avg / max</span></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr class="state-row"><td colspan="10">กำลังโหลดข้อมูล...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <div class="page-info" id="pageInfo">-</div>
+            <div class="page-controls" id="pageControls"></div>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeModal()"></div>
+<div class="modal-wrap" id="modalWrap" role="dialog" aria-modal="true" aria-labelledby="modal-rtu-name">
+    <div class="modal">
+        <div class="modal-header">
+            <div>
+                <h2 id="modal-rtu-name">RTU</h2>
+                <div id="modal-badge-area"></div>
+                <div class="sub" id="modal-sub"></div>
+            </div>
+            <button class="close-btn" onclick="closeModal()" aria-label="ปิด">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-grid">
+                <div>
+                    <div class="panel-section">
+                        <div class="section-label">สาเหตุหลัก</div>
+                        <ul class="cause-list" id="modal-causes"></ul>
+                    </div>
+                    <div class="panel-section">
+                        <div class="section-label">ขั้นตอนการนำข้อมูลเข้าระบบ</div>
+                        <div id="modal-pipeline"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="chart-card">
+                        <div class="chart-title">Flow ย้อนหลัง 30 วัน</div>
+                        <div class="chart-sub">หน่วย m³/hr</div>
+                        <div id="flowWrap" class="chart-box"><canvas id="flowChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Pressure ย้อนหลัง 30 วัน</div>
+                        <div class="chart-sub">หน่วยเมตร</div>
+                        <div id="pressWrap" class="chart-box"><canvas id="pressChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* =========================================================================
+   CONFIG - เปลี่ยนแหล่งข้อมูลที่นี่จุดเดียว
+   -------------------------------------------------------------------------
+   DATA_SOURCE : 'MOCK'        ใช้ข้อมูลจำลองในไฟล์นี้
+                 'APPS_SCRIPT' ดึงจาก Apps Script Web App (Code.gs)
+                 'CSV'         ดึงจาก Google Sheet ที่ publish เป็น CSV
+
+   ฟิลด์ที่ระบบคาดหวังจาก action=status
+     rtu_id, rtu_name, branch_id, branch_name, region, zone_id, dma_code,
+     network, scada, ftp, folder, wlma, dq,
+     flow_min, flow_avg, flow_max, press_min, press_avg, press_max,
+     realtime_at, daily_date
+   ฟิลด์ที่ระบบคาดหวังจาก action=history
+     date, flow_min, flow_avg, flow_max, press_min, press_avg, press_max,
+     flow_96, press_96   (สองตัวหลังยังไม่นำไปคำนวณ รอสรุปเกณฑ์ Data Quality)
+   ค่าสถานะที่รับได้ : GREEN | YELLOW | RED | GRAY
+   ========================================================================= 
+    const CONFIG = {
+        DATA_SOURCE: 'MOCK',
+        APPS_SCRIPT: { url: '' },
+        CSV: { statusUrl: '', historyUrl: '' },
+        PAGE_SIZE: 25,
+        HISTORY_DAYS: 30
+    };
+*/
+const CONFIG = {
+    DATA_SOURCE: 'APPS_SCRIPT',
+    APPS_SCRIPT: { url: 'https://script.google.com/macros/s/AKfycbxSYzNUKtfUAFRMG9G-EOHiJzr9nECms24o-SHUUZRax68-KamgJWeKwuKQTSKJIwWr1Q/exec' },
+    CSV: { statusUrl: '', historyUrl: '' },
+    PAGE_SIZE: 25,
+    HISTORY_DAYS: 30
+};
+
+/* ========================= โครงสร้างด่านตรวจ ========================= */
+const STEP_GROUPS = [
+    { key: 'now',   title: 'สถานะปัจจุบัน',  cascade: true,
+      steps: [ { key: 'network', label: 'Network' }, { key: 'scada', label: 'SCADA' } ] },
+    { key: 'daily', title: 'รอบรายวันล่าสุด', cascade: true,
+      steps: [ { key: 'ftp', label: 'FTP Transfer' }, { key: 'folder', label: 'File Folder' },
+               { key: 'wlma', label: 'WLMA' }, { key: 'dq', label: 'Data Quality' } ] }
+];
+const ALL_STEPS = STEP_GROUPS.flatMap(g => g.steps.map(s => s.key));
+
+const CAUSE_TEXT = {
+    network: { RED: 'เครือข่ายขาดการเชื่อมต่อ',       YELLOW: 'สัญญาณเครือข่ายไม่เสถียร' },
+    scada:   { RED: 'SCADA ไม่ได้รับค่าจากตู้',       YELLOW: 'SCADA ได้รับค่าล่าช้ากว่ากำหนด' },
+    ftp:     { RED: 'ส่งไฟล์ FTP ไม่สำเร็จ',          YELLOW: 'ส่งไฟล์ FTP ล่าช้า' },
+    folder:  { RED: 'ไม่พบไฟล์ในโฟลเดอร์ปลายทาง',     YELLOW: 'ไฟล์ในโฟลเดอร์ไม่ครบ' },
+    wlma:    { RED: 'นำเข้าข้อมูลสู่ WLMA ไม่สำเร็จ',  YELLOW: 'นำเข้าข้อมูลสู่ WLMA ไม่ครบ' },
+    dq:      { RED: 'ข้อมูลผิดปกติรุนแรง',            YELLOW: 'พบข้อสังเกตด้านคุณภาพข้อมูล' }
+};
+const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'แจ้งเตือน', RED: 'ขัดข้อง', GRAY: 'ออฟไลน์' };
+const STATUS_KEYS = ['GREEN', 'YELLOW', 'RED', 'GRAY'];
+
+/* ========================= ข้อมูลจำลอง ========================= */
+const MOCK_BR = [
+    ['05','สสท.','ภาค 1'], ['07','สสส.','ภาค 1'], ['13','สสพ.','ภาค 1'], ['17','สสป.','ภาค 1'],
+    ['03','สสญ.','ภาค 2'], ['06','สสม.','ภาค 2'], ['12','สสล.','ภาค 2'],
+    ['15','สสช.','ภาค 3'], ['16','สสข.','ภาค 3'], ['53','สสบม.','ภาค 3'], ['55','สสสภ.','ภาค 3'],
+    ['01','สสบ.','ภาค 4'], ['02','สสต.','ภาค 4'], ['11','สสภ.','ภาค 4'],
+    ['14','สสว.','ภาค 5'], ['04','สสน.','ภาค 5'], ['54','สสบท.','ภาค 5'], ['56','สสมส.','ภาค 5']
+];
+
+function seedFrom(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0) % 100000;
+}
+function makeRand(seed) {
+    let s = seed || 1;
+    return function () { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+}
+const pad2 = n => String(n).padStart(2, '0');
+
+function buildMockRTU() {
+    const out = [];
+    MOCK_BR.forEach(([br, name, region]) => {
+        const rand = makeRand(seedFrom(br));
+        const zones = 2 + Math.floor(rand() * 2);
+        for (let z = 1; z <= zones; z++) {
+            const dmas = 2 + Math.floor(rand() * 3);
+            for (let d = 1; d <= dmas; d++) {
+                const id = `DM-${br}-${pad2(z)}-${pad2(d)}-01`;
+                const r = makeRand(seedFrom(id));
+                const roll = r();
+                const row = { rtu_id: id, rtu_name: '', branch_id: br, branch_name: name,
+                              region: region, zone_id: pad2(z), dma_code: `DM-${br}-${pad2(z)}-${pad2(d)}`,
+                              network: 'GREEN', scada: 'GREEN', ftp: 'GREEN',
+                              folder: 'GREEN', wlma: 'GREEN', dq: 'GREEN' };
+                if (roll > 0.94)      row.network = 'RED';
+                else if (roll > 0.90) row.scada   = 'RED';
+                else if (roll > 0.87) row.ftp     = 'RED';
+                else if (roll > 0.85) row.folder  = 'RED';
+                else if (roll > 0.83) row.wlma    = 'RED';
+                else if (roll > 0.80) row.dq      = 'RED';
+                else if (roll > 0.72) row.dq      = 'YELLOW';
+                else if (roll > 0.68) row.scada   = 'YELLOW';
+                out.push(row);
+            }
+        }
+    });
+    return out;
+}
+const MOCK_RTU = buildMockRTU();
+
+function mockHistory(rtuId, days) {
+    const rand = makeRand(seedFrom(rtuId));
+    const baseFlow = 45 + rand() * 80, basePress = 18 + rand() * 10;
+    const out = [];
+    for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const fAvg = baseFlow * (0.88 + rand() * 0.24);
+        const pAvg = basePress * (0.94 + rand() * 0.12);
+        const gap = (i % 9 === 4);
+        out.push({
+            date: d.toISOString().slice(0, 10),
+            flow_min:  +(fAvg * (0.38 + rand() * 0.12)).toFixed(1),
+            flow_avg:  +fAvg.toFixed(1),
+            flow_max:  +(fAvg * (1.45 + rand() * 0.3)).toFixed(1),
+            press_min: +(pAvg - 2 - rand() * 2.5).toFixed(1),
+            press_avg: +pAvg.toFixed(1),
+            press_max: +(pAvg + 1.5 + rand() * 2).toFixed(1),
+            flow_96:  mock96(fAvg, 0.45, rand, gap),
+            press_96: mock96(pAvg, 0.10, rand, gap)
+        });
+    }
+    return out;
+}
+/* array 96 ค่า (ทุก 15 นาที) ช่วงที่ไม่มีข้อมูลเป็น null ไม่ใช่ 0 */
+function mock96(avg, swing, rand, gap) {
+    const arr = [];
+    for (let s = 0; s < 96; s++) {
+        if (gap && s >= 40 && s < 52) { arr.push(null); continue; }
+        const daily = 1 - swing * Math.cos((s / 4 - 4) / 24 * 2 * Math.PI);
+        arr.push(+(avg * daily * (0.97 + rand() * 0.06)).toFixed(1));
+    }
+    return arr;
+}
+
+/* ========================= Data Adapter ========================= */
+function parseCSV(text) {
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (q) {
+            if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+            else if (c === '"') q = false;
+            else cell += c;
+        } else if (c === '"') q = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else if (c !== '\r') cell += c;
+    }
+    if (cell.length || row.length) { row.push(cell); rows.push(row); }
+    if (!rows.length) return [];
+    const head = rows.shift().map(h => h.trim());
+    return rows.filter(r => r.some(v => v !== '')).map(r => {
+        const o = {}; head.forEach((h, i) => o[h] = (r[i] || '').trim()); return o;
+    });
+}
+
+async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data !== undefined ? json.data : json;
+}
+
+const DataSource = {
+    async getStatus() {
+        if (CONFIG.DATA_SOURCE === 'MOCK') {
+            return MOCK_RTU.map(r => {
+                const h = mockHistory(r.rtu_id, CONFIG.HISTORY_DAYS);
+                const last = h[h.length - 1];
+                return Object.assign({}, r, {
+                    flow_min: last.flow_min, flow_avg: last.flow_avg, flow_max: last.flow_max,
+                    press_min: last.press_min, press_avg: last.press_avg, press_max: last.press_max
+                });
+            }).map(normalizeStatusRow);
+        }
+        if (CONFIG.DATA_SOURCE === 'CSV') {
+            const res = await fetch(CONFIG.CSV.statusUrl);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return parseCSV(await res.text()).map(normalizeStatusRow);
+        }
+        return (await fetchJSON(CONFIG.APPS_SCRIPT.url + '?action=status')).map(normalizeStatusRow);
+    },
+
+    async getHistory(rtuId) {
+        if (CONFIG.DATA_SOURCE === 'MOCK') return mockHistory(rtuId, CONFIG.HISTORY_DAYS);
+        if (CONFIG.DATA_SOURCE === 'CSV') {
+            const res = await fetch(CONFIG.CSV.historyUrl);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return parseCSV(await res.text())
+                .filter(r => (r.rtu_id || r.id) === rtuId)
+                .map(normalizeHistoryRow)
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .slice(-CONFIG.HISTORY_DAYS);
+        }
+        const url = CONFIG.APPS_SCRIPT.url + '?action=history&rtu=' +
+                    encodeURIComponent(rtuId) + '&days=' + CONFIG.HISTORY_DAYS;
+        return (await fetchJSON(url)).map(normalizeHistoryRow);
+    },
+
+    async getMeta(rows) {
+        const now = new Date();
+        const first = (rows && rows[0]) || {};
+        return {
+            realtimeAt: first.realtime_at || now.toLocaleString('th-TH', { hour12: false }),
+            dailyDate:  first.daily_date  || new Date(now.getTime() - 86400000).toISOString().slice(0, 10)
+        };
+    }
+};
+
+const num = v => (v === '' || v === null || v === undefined || isNaN(+v)) ? null : +v;
+const st = v => {
+    const s = String(v || '').trim().toUpperCase();
+    return STATUS_KEYS.includes(s) ? s : 'GRAY';
+};
+
+function normalizeStatusRow(r) {
+    return {
+        rtu_id: r.rtu_id || r.id, rtu_name: r.rtu_name || '',
+        branch_id: String(r.branch_id || ''), branch_name: r.branch_name || '',
+        region: r.region || '', zone_id: String(r.zone_id || ''), dma_code: r.dma_code || '',
+        network: st(r.network), scada: st(r.scada), ftp: st(r.ftp),
+        folder: st(r.folder), wlma: st(r.wlma), dq: st(r.dq),
+        flow_min: num(r.flow_min), flow_avg: num(r.flow_avg), flow_max: num(r.flow_max),
+        press_min: num(r.press_min), press_avg: num(r.press_avg), press_max: num(r.press_max),
+        realtime_at: r.realtime_at || '', daily_date: r.daily_date || ''
+    };
+}
+function normalizeHistoryRow(r) {
+    return {
+        date: String(r.date || '').slice(0, 10),
+        flow_min: num(r.flow_min), flow_avg: num(r.flow_avg), flow_max: num(r.flow_max),
+        press_min: num(r.press_min), press_avg: num(r.press_avg), press_max: num(r.press_max),
+        flow_96: parse96(r.flow_96), press_96: parse96(r.press_96)
+    };
+}
+/* แปลงค่ารายช่วง 15 นาที ให้เป็น array 96 ช่อง ช่องที่ไม่มีค่าเป็น null */
+function parse96(v) {
+    if (v === null || v === undefined || v === '') return null;
+    let arr;
+    if (Array.isArray(v)) arr = v;
+    else {
+        const s = String(v).trim();
+        if (s.startsWith('[')) { try { arr = JSON.parse(s); } catch (e) { return null; } }
+        else arr = s.split(/[|,]/);
+    }
+    const out = arr.map(x => (x === null || x === undefined || String(x).trim() === '') ? null : num(x));
+    while (out.length < 96) out.push(null);
+    return out.slice(0, 96);
+}
+
+/* ========================= Logic สถานะ ========================= */
+function processRTU(raw) {
+    const p = Object.assign({}, raw);
+    const causes = [];
+    STEP_GROUPS.forEach(group => {
+        let blocked = false;
+        group.steps.forEach(step => {
+            if (blocked) { p[step.key] = 'GRAY'; return; }
+            const val = st(raw[step.key]);
+            p[step.key] = val;
+            if (val === 'RED' || val === 'YELLOW') {
+                const txt = (CAUSE_TEXT[step.key] || {})[val];
+                if (txt) causes.push({ level: val, text: txt });
+            }
+            if (val === 'RED' && group.cascade) blocked = true;
+        });
+    });
+    let overall = 'GREEN';
+    if (p.network === 'RED') overall = 'GRAY';
+    else if (ALL_STEPS.some(k => p[k] === 'RED')) overall = 'RED';
+    else if (ALL_STEPS.some(k => p[k] === 'YELLOW')) overall = 'YELLOW';
+    p.overall = overall;
+    p.causes = causes.length ? causes : [{ level: 'GREEN', text: 'ทำงานปกติ' }];
+    p.hasValues = (p.wlma === 'GREEN' || p.wlma === 'YELLOW');
+    return p;
+}
+
+/* ========================= State ========================= */
+let allData = [], viewData = [], currentPage = 1;
+let filterRegion = 'ALL', filterBranch = 'ALL';
+let flowChart = null, pressChart = null;
+let metaCache = { realtimeAt: '-', dailyDate: '-' };
+
+/* ========================= Helper ========================= */
+const badgeHtml = s => `<span class="status-badge bg-${s.toLowerCase()}"><span class="status-dot fill-${s.toLowerCase()}"></span> ${OVERALL_TEXT[s]}</span>`;
+const dotHtml = (s, label) => `<div class="dot-only" title="${label}: ${OVERALL_TEXT[s]}"><span class="status-dot fill-${s.toLowerCase()}"></span></div>`;
+
+function fpCell(min, avg, max, show) {
+    if (!show || avg === null || avg === undefined) return '<span class="fp-cell empty">—</span>';
+    const f = v => (v === null || v === undefined) ? '–' : v.toFixed(1);
+    return `<span class="fp-cell"><span class="fp-side">${f(min)}</span><span class="fp-sep">/</span>` +
+           `<span class="fp-mid">${f(avg)}</span><span class="fp-sep">/</span>` +
+           `<span class="fp-side">${f(max)}</span></span>`;
+}
+function tally(rows) {
+    const c = { GREEN: 0, YELLOW: 0, RED: 0, GRAY: 0, total: rows.length };
+    rows.forEach(r => c[r.overall]++);
+    return c;
+}
+function barHtml(c) {
+    if (!c.total) return '<div class="chip-bar"></div>';
+    const seg = k => `<span class="fill-${k.toLowerCase()}" style="width:${(c[k] / c.total * 100).toFixed(1)}%"></span>`;
+    return `<div class="chip-bar">${STATUS_KEYS.map(seg).join('')}</div>`;
+}
+function issueHtml(c) {
+    const bad = c.RED + c.GRAY;
+    if (!bad && !c.YELLOW) return '<div class="chip-issue">ปกติทั้งหมด</div>';
+    const parts = [];
+    if (bad) parts.push(`<b>${bad}</b> ต้องแก้`);
+    if (c.YELLOW) parts.push(`${c.YELLOW} เฝ้าระวัง`);
+    return `<div class="chip-issue">${parts.join(' · ')}</div>`;
+}
+
+/* ========================= Render ========================= */
+function renderRegionChips() {
+    const regions = [...new Set(allData.map(r => r.region).filter(Boolean))].sort();
+    const all = tally(allData);
+    let html = `<button class="chip ${filterRegion === 'ALL' ? 'active' : ''}" onclick="setRegion('ALL')">
+        <div class="chip-top"><span class="chip-name">ทุกภาค</span><span class="chip-count">${all.total}</span></div>
+        ${barHtml(all)}${issueHtml(all)}</button>`;
+    regions.forEach(rg => {
+        const c = tally(allData.filter(r => r.region === rg));
+        html += `<button class="chip ${filterRegion === rg ? 'active' : ''}" onclick="setRegion('${rg}')">
+            <div class="chip-top"><span class="chip-name">${rg}</span><span class="chip-count">${c.total}</span></div>
+            ${barHtml(c)}${issueHtml(c)}</button>`;
+    });
+    document.getElementById('regionChips').innerHTML = html;
+    document.getElementById('regionNote').textContent =
+        filterRegion === 'ALL' ? `${regions.length} ภาค` : `กำลังดู ${filterRegion} · กดซ้ำเพื่อยกเลิก`;
+}
+
+function renderBranchChips() {
+    const scope = allData.filter(r => filterRegion === 'ALL' || r.region === filterRegion);
+    const branches = [...new Set(scope.map(r => r.branch_id).filter(Boolean))].sort();
+    const all = tally(scope);
+    let html = `<button class="chip ${filterBranch === 'ALL' ? 'active' : ''}" onclick="setBranch('ALL')">
+        <div class="chip-top"><span class="chip-name">ทุกสาขา</span><span class="chip-count">${all.total}</span></div>
+        ${barHtml(all)}${issueHtml(all)}</button>`;
+    branches.forEach(b => {
+        const rows = scope.filter(r => r.branch_id === b);
+        const c = tally(rows);
+        const nm = rows[0].branch_name || b;
+        html += `<button class="chip ${filterBranch === b ? 'active' : ''}" onclick="setBranch('${b}')">
+            <div class="chip-top"><span class="chip-name">${nm}</span><span class="chip-count">${c.total}</span></div>
+            ${barHtml(c)}${issueHtml(c)}</button>`;
+    });
+    document.getElementById('branchChips').innerHTML = html;
+    document.getElementById('branchNote').textContent =
+        filterBranch === 'ALL' ? `${branches.length} สาขา` : 'กดซ้ำเพื่อยกเลิก';
+}
+
+function renderZoneOptions(scope) {
+    const sel = document.getElementById('zoneFilter');
+    const zones = [...new Set(scope.map(r => r.zone_id).filter(Boolean))].sort();
+    const keep = zones.includes(sel.value) ? sel.value : 'ALL';
+    sel.innerHTML = '<option value="ALL">ทุกโซน</option>' +
+        zones.map(z => `<option value="${z}">โซน ${z}</option>`).join('');
+    sel.value = keep;
+}
+
+function renderCards(scope) {
+    const c = tally(scope);
+    const sel = document.getElementById('statusFilter').value;
+    const cards = [
+        { key: 'ALL',    title: 'RTU ในมุมมองนี้', value: c.total, color: 'var(--mwa-deep-blue)', dot: '' },
+        { key: 'GREEN',  title: 'ปกติ',       value: c.GREEN,  color: 'var(--status-green-fill)',  dot: 'fill-green' },
+        { key: 'YELLOW', title: 'แจ้งเตือน',  value: c.YELLOW, color: 'var(--status-yellow-fill)', dot: 'fill-yellow' },
+        { key: 'RED',    title: 'ขัดข้อง',    value: c.RED,    color: 'var(--status-red-fill)',    dot: 'fill-red' },
+        { key: 'GRAY',   title: 'ออฟไลน์',    value: c.GRAY,   color: 'var(--status-gray-fill)',   dot: 'fill-gray' }
+    ];
+    document.getElementById('summaryGrid').innerHTML = cards.map(cd => `
+        <div class="card ${sel === cd.key ? 'active' : ''}" tabindex="0" role="button"
+             onclick="setStatus('${cd.key}')" onkeydown="cardKey(event,'${cd.key}')"
+             style="border-top-color:${cd.color}">
+            <span class="card-title">${cd.title}</span>
+            <div class="card-value">${cd.dot ? `<span class="status-dot ${cd.dot}"></span>` : ''}${cd.value}</div>
+            <div class="card-hint">${cd.key === 'ALL' ? 'แสดงทุกสถานะ' : 'กำลังกรอง · กดซ้ำเพื่อยกเลิก'}</div>
+        </div>`).join('');
+}
+
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    const size = CONFIG.PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(viewData.length / size));
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    if (!viewData.length) {
+        tbody.innerHTML = '<tr class="state-row"><td colspan="10">ไม่พบ RTU ที่ตรงกับเงื่อนไข</td></tr>';
+    } else {
+        const start = (currentPage - 1) * size;
+        tbody.innerHTML = viewData.slice(start, start + size).map(r => {
+            const sub = [r.branch_name, r.dma_code, r.rtu_name].filter(Boolean).join(' · ');
+            return `<tr onclick="openModal('${r.rtu_id}')">
+                <td class="rtu-name">${r.rtu_id}${sub ? `<small>${sub}</small>` : ''}</td>
+                <td>${badgeHtml(r.overall)}</td>
+                <td class="sep-left">${dotHtml(r.network, 'Network')}</td>
+                <td>${dotHtml(r.scada, 'SCADA')}</td>
+                <td class="sep-left">${dotHtml(r.ftp, 'FTP')}</td>
+                <td>${dotHtml(r.folder, 'File Folder')}</td>
+                <td>${dotHtml(r.wlma, 'WLMA')}</td>
+                <td>${dotHtml(r.dq, 'Data Quality')}</td>
+                <td class="sep-left">${fpCell(r.flow_min, r.flow_avg, r.flow_max, r.hasValues)}</td>
+                <td>${fpCell(r.press_min, r.press_avg, r.press_max, r.hasValues)}</td>
+            </tr>`;
+        }).join('');
+    }
+    renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+    const size = CONFIG.PAGE_SIZE;
+    const info = document.getElementById('pageInfo');
+    const ctrl = document.getElementById('pageControls');
+    if (!viewData.length) { info.textContent = 'ไม่มีข้อมูล'; ctrl.innerHTML = ''; return; }
+
+    const start = (currentPage - 1) * size + 1;
+    const end = Math.min(currentPage * size, viewData.length);
+    info.textContent = `แสดง ${start}–${end} จาก ${viewData.length} ตู้`;
+
+    const nums = [];
+    const push = p => { if (!nums.includes(p) && p >= 1 && p <= totalPages) nums.push(p); };
+    push(1); push(2);
+    for (let p = currentPage - 1; p <= currentPage + 1; p++) push(p);
+    push(totalPages - 1); push(totalPages);
+    nums.sort((a, b) => a - b);
+
+    let html = `<button class="page-btn" onclick="gotoPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+    let prev = 0;
+    nums.forEach(p => {
+        if (prev && p - prev > 1) html += '<span class="page-gap">…</span>';
+        html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="gotoPage(${p})">${p}</button>`;
+        prev = p;
+    });
+    html += `<button class="page-btn" onclick="gotoPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+    if (totalPages > 5) {
+        html += `<span class="page-jump">ไปหน้า
+            <input type="number" min="1" max="${totalPages}" id="jumpInput"
+                   onkeydown="if(event.key==='Enter'){gotoPage(+this.value);this.value='';}">
+            / ${totalPages}</span>`;
+    }
+    ctrl.innerHTML = html;
+}
+
+function gotoPage(p) {
+    const totalPages = Math.max(1, Math.ceil(viewData.length / CONFIG.PAGE_SIZE));
+    if (!p || p < 1 || p > totalPages) return;
+    currentPage = p;
+    renderTable();
+    document.querySelector('.table-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ========================= Filter ========================= */
+function setRegion(rg) {
+    filterRegion = (rg !== 'ALL' && filterRegion === rg) ? 'ALL' : rg;
+    filterBranch = 'ALL';
+    document.getElementById('zoneFilter').value = 'ALL';
+    applyFilter();
+}
+function setBranch(b) {
+    filterBranch = (b !== 'ALL' && filterBranch === b) ? 'ALL' : b;
+    document.getElementById('zoneFilter').value = 'ALL';
+    applyFilter();
+}
+function setStatus(s) {
+    const sel = document.getElementById('statusFilter');
+    sel.value = (s !== 'ALL' && sel.value === s) ? 'ALL' : s;
+    applyFilter();
+}
+function cardKey(e, s) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatus(s); }
+}
+function clearFilters() {
+    filterRegion = 'ALL'; filterBranch = 'ALL';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('zoneFilter').value = 'ALL';
+    document.getElementById('statusFilter').value = 'ALL';
+    applyFilter();
+}
+
+function applyFilter() {
+    renderRegionChips();
+    renderBranchChips();
+
+    const scope = allData.filter(r =>
+        (filterRegion === 'ALL' || r.region === filterRegion) &&
+        (filterBranch === 'ALL' || r.branch_id === filterBranch));
+
+    renderZoneOptions(scope);
+    const zone = document.getElementById('zoneFilter').value;
+    const scoped = scope.filter(r => zone === 'ALL' || r.zone_id === zone);
+
+    renderCards(scoped);
+
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const s = document.getElementById('statusFilter').value;
+    viewData = scoped.filter(r => {
+        const matchQ = !q || r.rtu_id.toLowerCase().includes(q) ||
+                       (r.dma_code || '').toLowerCase().includes(q) ||
+                       (r.rtu_name || '').toLowerCase().includes(q);
+        return matchQ && (s === 'ALL' || r.overall === s);
+    });
+    currentPage = 1;
+    renderTable();
+}
+
+/* ========================= Modal ========================= */
+async function openModal(rtuId) {
+    const r = allData.find(x => x.rtu_id === rtuId);
+    if (!r) return;
+
+    document.getElementById('modal-rtu-name').textContent = r.rtu_id;
+    document.getElementById('modal-badge-area').innerHTML = badgeHtml(r.overall);
+    document.getElementById('modal-sub').textContent =
+        [r.region, r.branch_name, r.dma_code, r.rtu_name].filter(Boolean).join(' · ');
+
+    const col = { RED: ['var(--status-red-bg)', 'var(--status-red-text)'],
+                  YELLOW: ['var(--status-yellow-bg)', 'var(--status-yellow-text)'],
+                  GREEN: ['var(--status-green-bg)', 'var(--status-green-text)'] };
+    document.getElementById('modal-causes').innerHTML = r.causes.map(c => {
+        const cc = col[c.level] || col.GREEN;
+        return `<li style="background:${cc[0]}; color:${cc[1]}">${c.text}</li>`;
+    }).join('');
+
+    document.getElementById('modal-pipeline').innerHTML = STEP_GROUPS.map(g => `
+        <div class="pipe-group">
+            <div class="pipe-group-title">${g.title}</div>
+            <div class="pipe-group-time">${g.key === 'now' ? metaCache.realtimeAt : metaCache.dailyDate}</div>
+            <div class="pipeline">
+                ${g.steps.map(s => {
+                    const v = r[s.key];
+                    const b = { GREEN: '#10B981', YELLOW: '#F59E0B', RED: '#EF4444', GRAY: '#E2E8F0' }[v];
+                    return `<div class="pipeline-step">
+                        <div class="step-indicator" style="border-color:${b}">
+                            <div class="inner-dot fill-${v.toLowerCase()}"></div>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-name">${s.label}</div>
+                            <div class="step-desc">${stepDesc(s.key, v)}</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`).join('');
+
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('modalWrap').classList.add('open');
+
+    showChartLoading();
+    try { drawCharts(await DataSource.getHistory(rtuId)); }
+    catch (e) { showChartError(e.message); }
+}
+
+function stepDesc(key, status) {
+    if (status === 'GRAY') return 'ไม่ทราบสถานะ เนื่องจากขั้นตอนก่อนหน้าขัดข้อง';
+    if (status === 'GREEN') return 'ทำงานปกติ';
+    return (CAUSE_TEXT[key] || {})[status] || '';
+}
+function closeModal() {
+    document.getElementById('overlay').classList.remove('open');
+    document.getElementById('modalWrap').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ========================= Charts ========================= */
+function showChartLoading() {
+    ['flowWrap', 'pressWrap'].forEach(id => {
+        document.getElementById(id).innerHTML = '<div class="chart-empty">กำลังโหลดกราฟ...</div>';
+    });
+}
+function showChartError(msg) {
+    ['flowWrap', 'pressWrap'].forEach(id => {
+        document.getElementById(id).innerHTML = `<div class="chart-empty">โหลดกราฟไม่สำเร็จ (${msg})</div>`;
+    });
+}
+function drawCharts(hist) {
+    if (flowChart) { flowChart.destroy(); flowChart = null; }
+    if (pressChart) { pressChart.destroy(); pressChart = null; }
+    if (!hist || !hist.length) {
+        ['flowWrap', 'pressWrap'].forEach(id => {
+            document.getElementById(id).innerHTML = '<div class="chart-empty">ไม่มีข้อมูลย้อนหลัง</div>';
+        });
+        return;
+    }
+    document.getElementById('flowWrap').innerHTML = '<canvas id="flowChart"></canvas>';
+    document.getElementById('pressWrap').innerHTML = '<canvas id="pressChart"></canvas>';
+    const labels = hist.map(h => {
+        const p = h.date.split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] : h.date;
+    });
+    flowChart = buildChart('flowChart', labels,
+        hist.map(h => h.flow_min), hist.map(h => h.flow_avg), hist.map(h => h.flow_max), 'm³/hr');
+    pressChart = buildChart('pressChart', labels,
+        hist.map(h => h.press_min), hist.map(h => h.press_avg), hist.map(h => h.press_max), 'เมตร');
+}
+function buildChart(canvasId, labels, min, avg, max, unit) {
+    return new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'max', data: max, borderColor: '#00C2F3', backgroundColor: '#00C2F3',
+                  borderWidth: 1.5, borderDash: [4, 3], pointRadius: 0, tension: 0.25 },
+                { label: 'avg', data: avg, borderColor: '#065BAA', backgroundColor: '#065BAA',
+                  borderWidth: 2.5, pointRadius: 0, tension: 0.25 },
+                { label: 'min', data: min, borderColor: '#94A3B8', backgroundColor: '#94A3B8',
+                  borderWidth: 1.5, borderDash: [4, 3], pointRadius: 0, tension: 0.25 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, spanGaps: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 24, boxHeight: 2, font: { size: 12 } } },
+                tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y} ${unit}` } }
+            },
+            scales: {
+                x: {
+                    grid: { display: true, drawOnChartArea: false, drawTicks: true, tickLength: 6, color: '#CBD5E1' },
+                    ticks: {
+                        font: { size: 11 }, maxRotation: 0, autoSkip: false, padding: 4,
+                        callback: function (val, idx) {
+                            const step = labels.length > 20 ? 3 : (labels.length > 10 ? 2 : 1);
+                            return idx % step === 0 ? this.getLabelForValue(val) : '';
+                        }
+                    }
+                },
+                y: { grid: { color: '#F1F5F9' }, ticks: { font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+/* ========================= Load ========================= */
+async function loadAll() {
+    const btn = document.getElementById('btnRefresh');
+    btn.disabled = true;
+    document.getElementById('tableBody').innerHTML =
+        '<tr class="state-row"><td colspan="10">กำลังโหลดข้อมูล...</td></tr>';
+    try {
+        const raw = await DataSource.getStatus();
+        metaCache = await DataSource.getMeta(raw);
+        allData = raw.map(processRTU);
+        document.getElementById('time-realtime').textContent = metaCache.realtimeAt;
+        document.getElementById('time-daily').textContent = metaCache.dailyDate;
+        applyFilter();
+    } catch (e) {
+        document.getElementById('tableBody').innerHTML =
+            `<tr class="state-row"><td colspan="10">โหลดข้อมูลไม่สำเร็จ (${e.message}) — ตรวจสอบค่าใน CONFIG แล้วกดรีเฟรชอีกครั้ง</td></tr>`;
+        document.getElementById('pageInfo').textContent = '-';
+        document.getElementById('pageControls').innerHTML = '';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadAll);
+</script>
+</body>
+</html>
