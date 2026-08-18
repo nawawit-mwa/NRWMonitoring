@@ -259,7 +259,7 @@ tbody tr:last-child td { border-bottom: none; }
                     <option value="GREEN">ปกติ</option>
                     <option value="YELLOW">แจ้งเตือน</option>
                     <option value="RED">ขัดข้อง</option>
-                    <option value="GRAY">ออฟไลน์</option>
+                    <option value="GRAY">ออฟไลน์ / ไม่ทราบ</option>
                 </select>
                 <button class="btn-clear" onclick="clearFilters()">ล้างตัวกรอง</button>
             </div>
@@ -357,18 +357,10 @@ tbody tr:last-child td { border-bottom: none; }
      date, flow_min, flow_avg, flow_max, press_min, press_avg, press_max,
      flow_96, press_96   (สองตัวหลังยังไม่นำไปคำนวณ รอสรุปเกณฑ์ Data Quality)
    ค่าสถานะที่รับได้ : GREEN | YELLOW | RED | GRAY
-   ========================================================================= 
-    const CONFIG = {
-        DATA_SOURCE: 'MOCK',
-        APPS_SCRIPT: { url: '' },
-        CSV: { statusUrl: '', historyUrl: '' },
-        PAGE_SIZE: 25,
-        HISTORY_DAYS: 30
-    };
-*/
+   ========================================================================= */
 const CONFIG = {
-    DATA_SOURCE: 'APPS_SCRIPT',
-    APPS_SCRIPT: { url: 'https://script.google.com/macros/s/AKfycbxSYzNUKtfUAFRMG9G-EOHiJzr9nECms24o-SHUUZRax68-KamgJWeKwuKQTSKJIwWr1Q/exec' },
+    DATA_SOURCE: 'MOCK',
+    APPS_SCRIPT: { url: '' },
     CSV: { statusUrl: '', historyUrl: '' },
     PAGE_SIZE: 25,
     HISTORY_DAYS: 30
@@ -392,7 +384,7 @@ const CAUSE_TEXT = {
     wlma:    { RED: 'นำเข้าข้อมูลสู่ WLMA ไม่สำเร็จ',  YELLOW: 'นำเข้าข้อมูลสู่ WLMA ไม่ครบ' },
     dq:      { RED: 'ข้อมูลผิดปกติรุนแรง',            YELLOW: 'พบข้อสังเกตด้านคุณภาพข้อมูล' }
 };
-const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'แจ้งเตือน', RED: 'ขัดข้อง', GRAY: 'ออฟไลน์' };
+const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'แจ้งเตือน', RED: 'ขัดข้อง', GRAY: 'ไม่ทราบ' };
 const STATUS_KEYS = ['GREEN', 'YELLOW', 'RED', 'GRAY'];
 
 /* ========================= ข้อมูลจำลอง ========================= */
@@ -601,6 +593,8 @@ function parse96(v) {
 function processRTU(raw) {
     const p = Object.assign({}, raw);
     const causes = [];
+    let unknown = 0;   // ด่านที่ไม่ทราบผลจริง ไม่นับด่านที่เป็นเทาเพราะ cascade
+
     STEP_GROUPS.forEach(group => {
         let blocked = false;
         group.steps.forEach(step => {
@@ -611,14 +605,30 @@ function processRTU(raw) {
                 const txt = (CAUSE_TEXT[step.key] || {})[val];
                 if (txt) causes.push({ level: val, text: txt });
             }
+            if (val === 'GRAY') unknown++;
             if (val === 'RED' && group.cascade) blocked = true;
         });
     });
+
+    /* ลำดับความสำคัญ: ตู้ติดต่อไม่ได้ > ขัดข้อง > แจ้งเตือน > ไม่ทราบผล > ปกติ
+       สถานะไม่ทราบต้องไม่ตกลงมาเป็นปกติ ไม่งั้นหน้าจอจะรายงานเขียวทั้งที่ยังไม่มีใครตรวจ */
     let overall = 'GREEN';
     if (p.network === 'RED') overall = 'GRAY';
     else if (ALL_STEPS.some(k => p[k] === 'RED')) overall = 'RED';
     else if (ALL_STEPS.some(k => p[k] === 'YELLOW')) overall = 'YELLOW';
+    else if (unknown > 0) overall = 'GRAY';
+
+    if (unknown > 0) {
+        causes.push({
+            level: 'GRAY',
+            text: unknown === ALL_STEPS.length
+                ? 'ยังไม่มีผลตรวจของตู้นี้ ระบบยังไม่ได้เขียนสถานะเข้ามา'
+                : `ยังไม่มีผลตรวจ ${unknown} ด่าน`
+        });
+    }
+
     p.overall = overall;
+    p.unknownSteps = unknown;
     p.causes = causes.length ? causes : [{ level: 'GREEN', text: 'ทำงานปกติ' }];
     p.hasValues = (p.wlma === 'GREEN' || p.wlma === 'YELLOW');
     return p;
@@ -631,7 +641,16 @@ let flowChart = null, pressChart = null;
 let metaCache = { realtimeAt: '-', dailyDate: '-' };
 
 /* ========================= Helper ========================= */
-const badgeHtml = s => `<span class="status-badge bg-${s.toLowerCase()}"><span class="status-dot fill-${s.toLowerCase()}"></span> ${OVERALL_TEXT[s]}</span>`;
+/* GRAY ใช้ได้สองความหมาย ตู้ติดต่อไม่ได้ กับ ยังไม่มีผลตรวจ จึงแยกคำให้ชัด */
+function overallText(r) {
+    if (r.overall !== 'GRAY') return OVERALL_TEXT[r.overall];
+    return r.network === 'RED' ? 'ออฟไลน์' : 'ไม่ทราบ';
+}
+const badgeHtml = r => {
+    const s = typeof r === 'string' ? r : r.overall;
+    const txt = typeof r === 'string' ? OVERALL_TEXT[s] : overallText(r);
+    return `<span class="status-badge bg-${s.toLowerCase()}"><span class="status-dot fill-${s.toLowerCase()}"></span> ${txt}</span>`;
+};
 const dotHtml = (s, label) => `<div class="dot-only" title="${label}: ${OVERALL_TEXT[s]}"><span class="status-dot fill-${s.toLowerCase()}"></span></div>`;
 
 function fpCell(min, avg, max, show) {
@@ -652,11 +671,13 @@ function barHtml(c) {
     return `<div class="chip-bar">${STATUS_KEYS.map(seg).join('')}</div>`;
 }
 function issueHtml(c) {
-    const bad = c.RED + c.GRAY;
-    if (!bad && !c.YELLOW) return '<div class="chip-issue">ปกติทั้งหมด</div>';
+    if (!c.total) return '<div class="chip-issue">ไม่มีข้อมูล</div>';
+    if (c.GRAY === c.total) return '<div class="chip-issue">ยังไม่มีผลตรวจ</div>';
+    if (!c.RED && !c.GRAY && !c.YELLOW) return '<div class="chip-issue">ปกติทั้งหมด</div>';
     const parts = [];
-    if (bad) parts.push(`<b>${bad}</b> ต้องแก้`);
+    if (c.RED) parts.push(`<b>${c.RED}</b> ขัดข้อง`);
     if (c.YELLOW) parts.push(`${c.YELLOW} เฝ้าระวัง`);
+    if (c.GRAY) parts.push(`${c.GRAY} ไม่ทราบ`);
     return `<div class="chip-issue">${parts.join(' · ')}</div>`;
 }
 
@@ -715,7 +736,7 @@ function renderCards(scope) {
         { key: 'GREEN',  title: 'ปกติ',       value: c.GREEN,  color: 'var(--status-green-fill)',  dot: 'fill-green' },
         { key: 'YELLOW', title: 'แจ้งเตือน',  value: c.YELLOW, color: 'var(--status-yellow-fill)', dot: 'fill-yellow' },
         { key: 'RED',    title: 'ขัดข้อง',    value: c.RED,    color: 'var(--status-red-fill)',    dot: 'fill-red' },
-        { key: 'GRAY',   title: 'ออฟไลน์',    value: c.GRAY,   color: 'var(--status-gray-fill)',   dot: 'fill-gray' }
+        { key: 'GRAY',   title: 'ออฟไลน์ / ไม่ทราบ', value: c.GRAY,   color: 'var(--status-gray-fill)',   dot: 'fill-gray' }
     ];
     document.getElementById('summaryGrid').innerHTML = cards.map(cd => `
         <div class="card ${sel === cd.key ? 'active' : ''}" tabindex="0" role="button"
@@ -741,7 +762,7 @@ function renderTable() {
             const sub = [r.branch_name, r.dma_code, r.rtu_name].filter(Boolean).join(' · ');
             return `<tr onclick="openModal('${r.rtu_id}')">
                 <td class="rtu-name">${r.rtu_id}${sub ? `<small>${sub}</small>` : ''}</td>
-                <td>${badgeHtml(r.overall)}</td>
+                <td>${badgeHtml(r)}</td>
                 <td class="sep-left">${dotHtml(r.network, 'Network')}</td>
                 <td>${dotHtml(r.scada, 'SCADA')}</td>
                 <td class="sep-left">${dotHtml(r.ftp, 'FTP')}</td>
@@ -858,7 +879,7 @@ async function openModal(rtuId) {
     if (!r) return;
 
     document.getElementById('modal-rtu-name').textContent = r.rtu_id;
-    document.getElementById('modal-badge-area').innerHTML = badgeHtml(r.overall);
+    document.getElementById('modal-badge-area').innerHTML = badgeHtml(r);
     document.getElementById('modal-sub').textContent =
         [r.region, r.branch_name, r.dma_code, r.rtu_name].filter(Boolean).join(' · ');
 
