@@ -133,6 +133,8 @@ tbody tr:last-child td { border-bottom: none; }
 .status-badge { display: inline-flex; align-items: center; padding: 5px 11px; border-radius: 20px; font-size: 13.5px; font-weight: 600; gap: 6px; white-space: nowrap; }
 .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .dot-only { display: flex; justify-content: center; align-items: center; }
+.dot-only.off { color: #CBD5E1; font-size: 15px; }
+.inner-dash { color: #CBD5E1; font-size: 13px; line-height: 1; }
 .bg-green { background-color: var(--status-green-bg); color: var(--status-green-text); }
 .bg-yellow { background-color: var(--status-yellow-bg); color: var(--status-yellow-text); }
 .bg-red { background-color: var(--status-red-bg); color: var(--status-red-text); }
@@ -258,7 +260,7 @@ td.fp-col { text-align: center; }
                 <select id="statusFilter" class="filter-select" onchange="applyFilter()">
                     <option value="ALL">สถานะทั้งหมด</option>
                     <option value="GREEN">ปกติ</option>
-                    <option value="YELLOW">แจ้งเตือน</option>
+                    <option value="YELLOW">บริหารข้อมูล-ผ่าน</option>
                     <option value="RED">ขัดข้อง</option>
                     <option value="GRAY">ออฟไลน์ / ไม่ทราบ</option>
                 </select>
@@ -367,15 +369,26 @@ const CONFIG = {
 };
 
 /* ========================= โครงสร้างด่านตรวจ ========================= */
+/* =========================================================================
+   โครงสร้างด่านตรวจ
+   -------------------------------------------------------------------------
+   enabled : true  = นำด่านนี้มาคิดในสถานะภาพรวม
+             false = ยังไม่เปิดใช้ ตารางจะแสดงเป็นขีด และไม่นำมาคิด
+                     แต่ตู้จะขึ้นเขียวเต็มไม่ได้ จนกว่าจะเปิดครบทุกด่าน
+   พร้อมใช้เมื่อไหร่ เปลี่ยน false เป็น true ได้เลย ไม่ต้องแก้ที่อื่น
+   ========================================================================= */
 const STEP_GROUPS = [
     { key: 'now',   title: 'สถานะปัจจุบัน',  cascade: true,
-      steps: [ { key: 'network', label: 'Network' }, { key: 'scada', label: 'SCADA' } ] },
+      steps: [ { key: 'network', label: 'Network', enabled: true },
+               { key: 'scada',   label: 'SCADA',   enabled: true } ] },
     { key: 'daily', title: 'รอบรายวันล่าสุด', cascade: true,
-      steps: [ { key: 'ftp', label: 'FTP Transfer ที่ DR SITE' },
-               { key: 'wlma', label: 'WLMA (File & DB)' },
-               { key: 'dq', label: 'Data Quality' } ] }
+      steps: [ { key: 'ftp',  label: 'FTP Transfer ที่ DR SITE', enabled: true },
+               { key: 'wlma', label: 'WLMA (File & DB)',        enabled: false },
+               { key: 'dq',   label: 'Data Quality',            enabled: false } ] }
 ];
 const ALL_STEPS = STEP_GROUPS.flatMap(g => g.steps.map(s => s.key));
+const ACTIVE_STEPS = STEP_GROUPS.flatMap(g => g.steps.filter(s => s.enabled).map(s => s.key));
+const OFF_COUNT = ALL_STEPS.length - ACTIVE_STEPS.length;
 
 const CAUSE_TEXT = {
     network: { RED: 'เครือข่ายขาดการเชื่อมต่อ',       YELLOW: 'สัญญาณเครือข่ายไม่เสถียร' },
@@ -384,7 +397,7 @@ const CAUSE_TEXT = {
     wlma:    { RED: 'นำเข้าข้อมูลสู่ WLMA ไม่สำเร็จ',  YELLOW: 'นำเข้าข้อมูลสู่ WLMA ไม่ครบ' },
     dq:      { RED: 'ข้อมูลผิดปกติรุนแรง',            YELLOW: 'พบข้อสังเกตด้านคุณภาพข้อมูล' }
 };
-const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'แจ้งเตือน', RED: 'ขัดข้อง', GRAY: 'ไม่ทราบ' };
+const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'บริหารข้อมูล-ผ่าน', RED: 'ขัดข้อง', GRAY: 'ไม่ทราบ' };
 const STATUS_KEYS = ['GREEN', 'YELLOW', 'RED', 'GRAY'];
 
 /* ========================= ข้อมูลจำลอง ========================= */
@@ -592,11 +605,12 @@ function parse96(v) {
 function processRTU(raw) {
     const p = Object.assign({}, raw);
     const causes = [];
-    let unknown = 0;   // ด่านที่ไม่ทราบผลจริง ไม่นับด่านที่เป็นเทาเพราะ cascade
+    let unknown = 0;   // ด่านที่เปิดใช้แต่ไม่ทราบผล ไม่นับด่านที่เป็นเทาเพราะ cascade
 
     STEP_GROUPS.forEach(group => {
         let blocked = false;
         group.steps.forEach(step => {
+            if (!step.enabled) { p[step.key] = 'OFF'; return; }
             if (blocked) { p[step.key] = 'GRAY'; return; }
             const val = st(raw[step.key]);
             p[step.key] = val;
@@ -609,27 +623,33 @@ function processRTU(raw) {
         });
     });
 
-    /* ลำดับความสำคัญ: ตู้ติดต่อไม่ได้ > ขัดข้อง > แจ้งเตือน > ไม่ทราบผล > ปกติ
-       สถานะไม่ทราบต้องไม่ตกลงมาเป็นปกติ ไม่งั้นหน้าจอจะรายงานเขียวทั้งที่ยังไม่มีใครตรวจ */
-    let overall = 'GREEN';
-    if (p.network === 'RED') overall = 'GRAY';
-    else if (ALL_STEPS.some(k => p[k] === 'RED')) overall = 'RED';
-    else if (ALL_STEPS.some(k => p[k] === 'YELLOW')) overall = 'YELLOW';
-    else if (unknown > 0) overall = 'GRAY';
+    /* ลำดับ: ตู้ติดต่อไม่ได้ > ขัดข้อง > แจ้งเตือน > ไม่ทราบผล > ผ่านไม่ครบสาย > ปกติ
+       ตู้จะขึ้นเขียวเต็มได้ต่อเมื่อทุกด่านเปิดใช้งานและผ่านหมด
+       ถ้ายังมีด่านที่ปิดอยู่ ดีที่สุดคือเหลือง เพราะยังไม่ได้พิสูจน์ปลายทาง */
+    let overall = 'GREEN', reason = 'ok';
+    if (p.network === 'RED')                            { overall = 'GRAY';   reason = 'offline'; }
+    else if (ACTIVE_STEPS.some(k => p[k] === 'RED'))     { overall = 'RED';    reason = 'fail'; }
+    else if (ACTIVE_STEPS.some(k => p[k] === 'YELLOW'))  { overall = 'YELLOW'; reason = 'warn'; }
+    else if (unknown > 0)                                { overall = 'GRAY';   reason = 'unknown'; }
+    else if (OFF_COUNT > 0)                              { overall = 'YELLOW'; reason = 'partial'; }
 
-    if (unknown > 0) {
+    if (reason === 'unknown') {
         causes.push({
             level: 'GRAY',
-            text: unknown === ALL_STEPS.length
+            text: unknown === ACTIVE_STEPS.length
                 ? 'ยังไม่มีผลตรวจของตู้นี้ ระบบยังไม่ได้เขียนสถานะเข้ามา'
                 : `ยังไม่มีผลตรวจ ${unknown} ด่าน`
         });
     }
+    if (OFF_COUNT > 0) {
+        causes.push({ level: 'OFF', text: `ยังไม่เปิดใช้การตรวจสอบ ${OFF_COUNT} ด่านปลายทาง` });
+    }
 
     p.overall = overall;
+    p.overallReason = reason;
     p.unknownSteps = unknown;
-    p.causes = causes.length ? causes : [{ level: 'GREEN', text: 'ทำงานปกติ' }];
-    p.hasValues = (p.wlma === 'GREEN' || p.wlma === 'YELLOW');
+    p.causes = causes.length ? causes : [{ level: 'GREEN', text: 'ทำงานปกติทุกด่าน' }];
+    p.hasValues = (p.wlma === 'GREEN' || p.wlma === 'YELLOW' || p.wlma === 'OFF');
     return p;
 }
 
@@ -640,17 +660,20 @@ let flowChart = null, pressChart = null;
 let metaCache = { realtimeAt: '-', dailyDate: '-' };
 
 /* ========================= Helper ========================= */
-/* GRAY ใช้ได้สองความหมาย ตู้ติดต่อไม่ได้ กับ ยังไม่มีผลตรวจ จึงแยกคำให้ชัด */
+/* GRAY และ YELLOW ใช้ได้อย่างละสองความหมาย จึงเลือกคำตามเหตุผลที่ทำให้เป็นสถานะนั้น */
 function overallText(r) {
-    if (r.overall !== 'GRAY') return OVERALL_TEXT[r.overall];
-    return r.network === 'RED' ? 'ออฟไลน์' : 'ไม่ทราบ';
+    if (r.overall === 'GRAY')   return r.overallReason === 'offline' ? 'ออฟไลน์' : 'ไม่ทราบ';
+    if (r.overall === 'YELLOW') return r.overallReason === 'partial' ? 'บริหารข้อมูล-ผ่าน' : 'แจ้งเตือน';
+    return OVERALL_TEXT[r.overall];
 }
 const badgeHtml = r => {
     const s = typeof r === 'string' ? r : r.overall;
     const txt = typeof r === 'string' ? OVERALL_TEXT[s] : overallText(r);
     return `<span class="status-badge bg-${s.toLowerCase()}"><span class="status-dot fill-${s.toLowerCase()}"></span> ${txt}</span>`;
 };
-const dotHtml = (s, label) => `<div class="dot-only" title="${label}: ${OVERALL_TEXT[s]}"><span class="status-dot fill-${s.toLowerCase()}"></span></div>`;
+const dotHtml = (s, label) => (s === 'OFF')
+    ? `<div class="dot-only off" title="${label}: ยังไม่เปิดใช้การตรวจสอบ">—</div>`
+    : `<div class="dot-only" title="${label}: ${OVERALL_TEXT[s]}"><span class="status-dot fill-${s.toLowerCase()}"></span></div>`;
 
 function fpCell(min, avg, max, show) {
     if (!show || avg === null || avg === undefined) return '<span class="fp-cell empty">—</span>';
@@ -675,7 +698,7 @@ function issueHtml(c) {
     if (!c.RED && !c.GRAY && !c.YELLOW) return '<div class="chip-issue">ปกติทั้งหมด</div>';
     const parts = [];
     if (c.RED) parts.push(`<b>${c.RED}</b> ขัดข้อง`);
-    if (c.YELLOW) parts.push(`${c.YELLOW} เฝ้าระวัง`);
+    if (c.YELLOW) parts.push(`${c.YELLOW} ผ่าน`);
     if (c.GRAY) parts.push(`${c.GRAY} ไม่ทราบ`);
     return `<div class="chip-issue">${parts.join(' · ')}</div>`;
 }
@@ -733,7 +756,7 @@ function renderCards(scope) {
     const cards = [
         { key: 'ALL',    title: 'RTU ในมุมมองนี้', value: c.total, color: 'var(--mwa-deep-blue)', dot: '' },
         { key: 'GREEN',  title: 'ปกติ',       value: c.GREEN,  color: 'var(--status-green-fill)',  dot: 'fill-green' },
-        { key: 'YELLOW', title: 'แจ้งเตือน',  value: c.YELLOW, color: 'var(--status-yellow-fill)', dot: 'fill-yellow' },
+        { key: 'YELLOW', title: 'บริหารข้อมูล-ผ่าน', value: c.YELLOW, color: 'var(--status-yellow-fill)', dot: 'fill-yellow' },
         { key: 'RED',    title: 'ขัดข้อง',    value: c.RED,    color: 'var(--status-red-fill)',    dot: 'fill-red' },
         { key: 'GRAY',   title: 'ออฟไลน์ / ไม่ทราบ', value: c.GRAY,   color: 'var(--status-gray-fill)',   dot: 'fill-gray' }
     ];
@@ -883,6 +906,8 @@ async function openModal(rtuId) {
 
     const col = { RED: ['var(--status-red-bg)', 'var(--status-red-text)'],
                   YELLOW: ['var(--status-yellow-bg)', 'var(--status-yellow-text)'],
+                  GRAY: ['var(--status-gray-bg)', 'var(--status-gray-text)'],
+                  OFF: ['var(--status-gray-bg)', 'var(--status-gray-text)'],
                   GREEN: ['var(--status-green-bg)', 'var(--status-green-text)'] };
     document.getElementById('modal-causes').innerHTML = r.causes.map(c => {
         const cc = col[c.level] || col.GREEN;
@@ -896,11 +921,13 @@ async function openModal(rtuId) {
             <div class="pipeline">
                 ${g.steps.map(s => {
                     const v = r[s.key];
-                    const b = { GREEN: '#10B981', YELLOW: '#F59E0B', RED: '#EF4444', GRAY: '#E2E8F0' }[v];
-                    return `<div class="pipeline-step">
-                        <div class="step-indicator" style="border-color:${b}">
-                            <div class="inner-dot fill-${v.toLowerCase()}"></div>
-                        </div>
+                    const b = { GREEN: '#10B981', YELLOW: '#F59E0B', RED: '#EF4444',
+                                GRAY: '#E2E8F0', OFF: '#E2E8F0' }[v];
+                    const inner = v === 'OFF'
+                        ? '<div class="inner-dash">—</div>'
+                        : `<div class="inner-dot fill-${v.toLowerCase()}"></div>`;
+                    return `<div class="pipeline-step" ${v === 'OFF' ? 'style="opacity:0.55"' : ''}>
+                        <div class="step-indicator" style="border-color:${b}">${inner}</div>
                         <div class="step-content">
                             <div class="step-name">${s.label}</div>
                             <div class="step-desc">${stepDesc(s.key, v)}</div>
@@ -919,6 +946,7 @@ async function openModal(rtuId) {
 }
 
 function stepDesc(key, status) {
+    if (status === 'OFF') return 'ยังไม่เปิดใช้การตรวจสอบด่านนี้';
     if (status === 'GRAY') return 'ไม่ทราบสถานะ เนื่องจากขั้นตอนก่อนหน้าขัดข้อง';
     if (status === 'GREEN') return 'ทำงานปกติ';
     return (CAUSE_TEXT[key] || {})[status] || '';
