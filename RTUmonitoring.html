@@ -110,7 +110,7 @@ header {
 .btn-clear:hover { background: var(--status-gray-bg); color: #334155; }
 
 .table-scroll { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1140px; }
+table { width: 100%; border-collapse: collapse; text-align: left; }
 th {
     background: var(--status-gray-bg); color: var(--mwa-deep-blue);
     font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
@@ -269,28 +269,10 @@ td.fp-col { text-align: center; }
         </div>
 
         <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="grp" colspan="2"></th>
-                        <th class="grp grp-now sep-left" colspan="2">สถานะปัจจุบัน</th>
-                        <th class="grp grp-daily sep-left" colspan="3">รอบรายวันล่าสุด</th>
-                        <th class="grp grp-value sep-left" colspan="2">ค่าของวันล่าสุด</th>
-                    </tr>
-                    <tr>
-                        <th>RTU</th>
-                        <th>ภาพรวม</th>
-                        <th class="sep-left" style="text-align:center;">Network</th>
-                        <th style="text-align:center;">SCADA</th>
-                        <th class="sep-left" style="text-align:center;">FTP (DR)</th>
-                        <th style="text-align:center;">WLMA (File &amp; DB)</th>
-                        <th style="text-align:center;">Data Quality</th>
-                        <th class="sep-left" style="text-align:center;">Flow<span class="unit">m³/hr · min / avg / max</span></th>
-                        <th style="text-align:center;">Pressure<span class="unit">เมตร · min / avg / max</span></th>
-                    </tr>
-                </thead>
+            <table id="rtuTable">
+                <thead id="tableHead"></thead>
                 <tbody id="tableBody">
-                    <tr class="state-row"><td colspan="9">กำลังโหลดข้อมูล...</td></tr>
+                    <tr class="state-row"><td>กำลังโหลดข้อมูล...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -386,16 +368,27 @@ const CONFIG = {
    ========================================================================= */
 const STEP_GROUPS = [
     { key: 'now',   title: 'สถานะปัจจุบัน',  cascade: true,
-      steps: [ { key: 'network', label: 'Network', enabled: true },
-               { key: 'scada',   label: 'SCADA',   enabled: true } ] },
+      steps: [ { key: 'network', label: 'Network', col: 'Network', enabled: true },
+               { key: 'scada',   label: 'SCADA',   col: 'SCADA',   enabled: true } ] },
     { key: 'daily', title: 'รอบรายวันล่าสุด', cascade: true,
-      steps: [ { key: 'ftp',  label: 'FTP Transfer ที่ DR SITE', enabled: true },
-               { key: 'wlma', label: 'WLMA (File & DB)',        enabled: false },
-               { key: 'dq',   label: 'Data Quality',            enabled: false } ] }
+      steps: [ { key: 'ftp',  label: 'FTP Transfer ที่ DR SITE', col: 'FTP (DR)',          enabled: true },
+               { key: 'wlma', label: 'WLMA (File & DB)',        col: 'WLMA (File &amp; DB)', enabled: false },
+               { key: 'dq',   label: 'Data Quality',            col: 'Data Quality',      enabled: false } ] }
 ];
 const ALL_STEPS = STEP_GROUPS.flatMap(g => g.steps.map(s => s.key));
 const ACTIVE_STEPS = STEP_GROUPS.flatMap(g => g.steps.filter(s => s.enabled).map(s => s.key));
 const OFF_COUNT = ALL_STEPS.length - ACTIVE_STEPS.length;
+
+/* กลุ่มและด่านที่จะแสดงในตาราง ด่านที่ enabled: false จะไม่มีคอลัมน์เลย
+   กลุ่มที่ไม่เหลือด่านเปิดใช้แม้แต่ด่านเดียวจะถูกซ่อนทั้งกลุ่ม */
+const VISIBLE_GROUPS = STEP_GROUPS
+    .map(g => Object.assign({}, g, { steps: g.steps.filter(s => s.enabled) }))
+    .filter(g => g.steps.length > 0);
+
+/* คอลัมน์ค่าของวันล่าสุดผูกกับด่าน Data Quality
+   ถ้ายังไม่ได้ตรวจคุณภาพข้อมูล ก็ยังไม่ควรเอาตัวเลขมาโชว์ให้คนเชื่อ */
+const SHOW_VALUES = (STEP_GROUPS.flatMap(g => g.steps).find(s => s.key === 'dq') || {}).enabled === true;
+const COL_COUNT = 2 + ACTIVE_STEPS.length + (SHOW_VALUES ? 2 : 0);
 
 const CAUSE_TEXT = {
     network: { RED: 'เครือข่ายขาดการเชื่อมต่อ',       YELLOW: 'สัญญาณเครือข่ายไม่เสถียร' },
@@ -777,6 +770,29 @@ function renderCards(scope) {
         </div>`).join('');
 }
 
+/* สร้างหัวตารางจาก VISIBLE_GROUPS ครั้งเดียวตอนเริ่ม
+   ด่านที่ปิดใช้งานจะไม่มีคอลัมน์ ไม่ต้องแก้ HTML เมื่อเปิดปิดด่าน */
+function renderTableHead() {
+    let r1 = '<th class="grp" colspan="2"></th>';
+    let r2 = '<th>RTU</th><th>ภาพรวม</th>';
+    VISIBLE_GROUPS.forEach(g => {
+        r1 += `<th class="grp grp-${g.key} sep-left" colspan="${g.steps.length}">${g.title}</th>`;
+        g.steps.forEach((s, i) => {
+            r2 += `<th class="${i === 0 ? 'sep-left' : ''}" style="text-align:center;">${s.col}</th>`;
+        });
+    });
+    r1 += SHOW_VALUES ? '<th class="grp grp-value sep-left" colspan="2">ค่าของวันล่าสุด</th>' : '';
+    r2 += SHOW_VALUES
+        ? '<th class="sep-left" style="text-align:center;">Flow<span class="unit">m³/hr · min / avg / max</span></th>' +
+          '<th style="text-align:center;">Pressure<span class="unit">เมตร · min / avg / max</span></th>'
+        : '';
+    document.getElementById('tableHead').innerHTML = `<tr>${r1}</tr><tr>${r2}</tr>`;
+    document.getElementById('rtuTable').style.minWidth =
+        (400 + ACTIVE_STEPS.length * 110 + (SHOW_VALUES ? 340 : 0)) + 'px';
+}
+
+const stateRow = msg => `<tr class="state-row"><td colspan="${COL_COUNT}">${msg}</td></tr>`;
+
 function renderTable() {
     const tbody = document.getElementById('tableBody');
     const size = CONFIG.PAGE_SIZE;
@@ -784,21 +800,26 @@ function renderTable() {
     if (currentPage > totalPages) currentPage = totalPages;
 
     if (!viewData.length) {
-        tbody.innerHTML = '<tr class="state-row"><td colspan="9">ไม่พบ RTU ที่ตรงกับเงื่อนไข</td></tr>';
+        tbody.innerHTML = stateRow('ไม่พบ RTU ที่ตรงกับเงื่อนไข');
     } else {
         const start = (currentPage - 1) * size;
         tbody.innerHTML = viewData.slice(start, start + size).map(r => {
             const sub = [r.branch_name, r.dma_code, r.rtu_name].filter(Boolean).join(' · ');
+            let cells = '';
+            VISIBLE_GROUPS.forEach(g => {
+                g.steps.forEach((s, i) => {
+                    cells += `<td class="${i === 0 ? 'sep-left' : ''}">${dotHtml(r[s.key], s.label)}</td>`;
+                });
+            });
+            const values = SHOW_VALUES
+                ? `<td class="sep-left fp-col">${fpCell(r.flow_min, r.flow_avg, r.flow_max, r.hasValues)}</td>
+                   <td class="fp-col">${fpCell(r.press_min, r.press_avg, r.press_max, r.hasValues)}</td>`
+                : '';
             return `<tr onclick="openModal('${r.rtu_id}')">
                 <td class="rtu-name">${r.rtu_id}${sub ? `<small>${sub}</small>` : ''}</td>
                 <td>${badgeHtml(r)}</td>
-                <td class="sep-left">${dotHtml(r.network, 'Network')}</td>
-                <td>${dotHtml(r.scada, 'SCADA')}</td>
-                <td class="sep-left">${dotHtml(r.ftp, 'FTP (DR)')}</td>
-                <td>${dotHtml(r.wlma, 'WLMA (File & DB)')}</td>
-                <td>${dotHtml(r.dq, 'Data Quality')}</td>
-                <td class="sep-left fp-col">${fpCell(r.flow_min, r.flow_avg, r.flow_max, r.hasValues)}</td>
-                <td class="fp-col">${fpCell(r.press_min, r.press_avg, r.press_max, r.hasValues)}</td>
+                ${cells}
+                ${values}
             </tr>`;
         }).join('');
     }
@@ -1037,8 +1058,8 @@ function buildChart(canvasId, labels, min, avg, max, unit) {
 async function loadAll() {
     const btn = document.getElementById('btnRefresh');
     btn.disabled = true;
-    document.getElementById('tableBody').innerHTML =
-        '<tr class="state-row"><td colspan="9">กำลังโหลดข้อมูล...</td></tr>';
+    renderTableHead();
+    document.getElementById('tableBody').innerHTML = stateRow('กำลังโหลดข้อมูล...');
     try {
         const raw = await DataSource.getStatus();
         metaCache = await DataSource.getMeta(raw);
@@ -1048,7 +1069,7 @@ async function loadAll() {
         applyFilter();
     } catch (e) {
         document.getElementById('tableBody').innerHTML =
-            `<tr class="state-row"><td colspan="9">โหลดข้อมูลไม่สำเร็จ (${e.message}) — ตรวจสอบค่าใน CONFIG แล้วกดรีเฟรชอีกครั้ง</td></tr>`;
+            stateRow(`โหลดข้อมูลไม่สำเร็จ (${e.message}) — ตรวจสอบค่าใน CONFIG แล้วกดรีเฟรชอีกครั้ง`);
         document.getElementById('pageInfo').textContent = '-';
         document.getElementById('pageControls').innerHTML = '';
     } finally {
