@@ -89,7 +89,10 @@ header {
 .chip-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; margin-top: 8px; background: #F1F5F9; }
 .chip-bar span { display: block; height: 100%; }
 .chip-issue { font-size: 12px; color: #94A3B8; margin-top: 6px; }
-.chip-issue b { color: var(--status-red-text); font-weight: 600; }
+.chip-issue { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip-issue .ci { display: inline-flex; align-items: center; gap: 5px; color: #475569;
+                  font-variant-numeric: tabular-nums; }
+.chip-issue .ci i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
 /* ---- table ---- */
 .table-container { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); overflow: hidden; }
@@ -259,10 +262,6 @@ td.fp-col { text-align: center; }
                 </select>
                 <select id="statusFilter" class="filter-select" onchange="applyFilter()">
                     <option value="ALL">สถานะทั้งหมด</option>
-                    <option value="GREEN">ปกติ</option>
-                    <option value="YELLOW">บริหารข้อมูล-ผ่าน</option>
-                    <option value="RED">ขัดข้อง</option>
-                    <option value="GRAY">ออฟไลน์ / ไม่ทราบ</option>
                 </select>
                 <button class="btn-clear" onclick="clearFilters()">ล้างตัวกรอง</button>
             </div>
@@ -351,10 +350,14 @@ const CONFIG = {
 
     /* ควบคุมว่าด่านที่ปิดใช้งาน (enabled: false) จะกดเพดานสถานะไว้ที่เหลืองหรือไม่
        false = มองข้ามด่านที่ปิดสนิท ตู้ที่ผ่านทุกด่านที่เปิดอยู่จะขึ้นเขียว
-               "เขียว" จึงแปลว่า ผ่านเท่าที่ตรวจ ไม่ใช่ ผ่านทั้งสาย
-       true  = ตู้จะขึ้นเขียวได้ต่อเมื่อเปิดใช้ครบทุกด่านและผ่านหมด
-               ระหว่างที่ยังปิดบางด่าน ดีที่สุดคือเหลือง "บริหารข้อมูล-ผ่าน" */
-    CAP_AT_YELLOW_WHEN_OFF: false
+       true  = ตู้จะขึ้นเขียวได้ต่อเมื่อเปิดใช้ครบทุกด่านและผ่านหมด */
+    CAP_AT_YELLOW_WHEN_OFF: false,
+
+    /* เปิดใช้สถานะเหลืองหรือไม่
+       false = ไม่ใช้ระดับเหลืองเลย ซ่อนการ์ดและตัวกรองของเหลือง
+               ด่านที่ส่งค่า YELLOW มาจะถูกยกระดับเป็น RED เพื่อไม่ให้หายไปเงียบ ๆ
+       true  = ใช้ 4 ระดับตามปกติ */
+    ENABLE_YELLOW: false
 };
 
 /* ========================= โครงสร้างด่านตรวจ ========================= */
@@ -397,8 +400,11 @@ const CAUSE_TEXT = {
     wlma:    { RED: 'นำเข้าข้อมูลสู่ WLMA ไม่สำเร็จ',  YELLOW: 'นำเข้าข้อมูลสู่ WLMA ไม่ครบ' },
     dq:      { RED: 'ข้อมูลผิดปกติรุนแรง',            YELLOW: 'พบข้อสังเกตด้านคุณภาพข้อมูล' }
 };
-const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'บริหารข้อมูล-ผ่าน', RED: 'ขัดข้อง', GRAY: 'ไม่ทราบ' };
+const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'บริหารข้อมูล-ผ่าน', RED: 'ขัดข้อง', GRAY: 'OFFLINE' };
+const CARD_TEXT    = { GREEN: 'ปกติ', YELLOW: 'บริหารข้อมูล-ผ่าน', RED: 'ขัดข้อง', GRAY: 'OFFLINE/ติดเหตุ' };
 const STATUS_KEYS = ['GREEN', 'YELLOW', 'RED', 'GRAY'];
+/* สถานะที่แสดงบนหน้าจอ ตัดเหลืองออกเมื่อ ENABLE_YELLOW เป็น false */
+const VISIBLE_STATUS = STATUS_KEYS.filter(k => k !== 'YELLOW' || CONFIG.ENABLE_YELLOW);
 
 /* ========================= ข้อมูลจำลอง ========================= */
 const MOCK_BR = [
@@ -612,10 +618,12 @@ function processRTU(raw) {
         group.steps.forEach(step => {
             if (!step.enabled) { p[step.key] = 'OFF'; return; }
             if (blocked) { p[step.key] = 'GRAY'; return; }
-            const val = st(raw[step.key]);
+            let val = st(raw[step.key]);
+            /* ถ้าปิดใช้ระดับเหลือง ให้ยกระดับเป็นแดง ไม่ปล่อยให้หายไปเงียบ ๆ */
+            if (val === 'YELLOW' && !CONFIG.ENABLE_YELLOW) val = 'RED';
             p[step.key] = val;
             if (val === 'RED' || val === 'YELLOW') {
-                const txt = (CAUSE_TEXT[step.key] || {})[val];
+                const txt = (CAUSE_TEXT[step.key] || {})[st(raw[step.key])];
                 if (txt) causes.push({ level: val, text: txt });
             }
             if (val === 'GRAY') unknown++;
@@ -662,7 +670,6 @@ let metaCache = { realtimeAt: '-', dailyDate: '-' };
 /* ========================= Helper ========================= */
 /* GRAY และ YELLOW ใช้ได้อย่างละสองความหมาย จึงเลือกคำตามเหตุผลที่ทำให้เป็นสถานะนั้น */
 function overallText(r) {
-    if (r.overall === 'GRAY')   return r.overallReason === 'offline' ? 'ออฟไลน์' : 'ไม่ทราบ';
     if (r.overall === 'YELLOW') return r.overallReason === 'partial' ? 'บริหารข้อมูล-ผ่าน' : 'แจ้งเตือน';
     return OVERALL_TEXT[r.overall];
 }
@@ -690,17 +697,14 @@ function tally(rows) {
 function barHtml(c) {
     if (!c.total) return '<div class="chip-bar"></div>';
     const seg = k => `<span class="fill-${k.toLowerCase()}" style="width:${(c[k] / c.total * 100).toFixed(1)}%"></span>`;
-    return `<div class="chip-bar">${STATUS_KEYS.map(seg).join('')}</div>`;
+    return `<div class="chip-bar">${VISIBLE_STATUS.map(seg).join('')}</div>`;
 }
+/* แสดงจำนวนครบทุกสถานะ ยอดรวมต้องเท่ากับจำนวนตู้เสมอ เพื่อให้ตรวจกับการ์ดชุดล่างได้ */
 function issueHtml(c) {
     if (!c.total) return '<div class="chip-issue">ไม่มีข้อมูล</div>';
-    if (c.GRAY === c.total) return '<div class="chip-issue">ยังไม่มีผลตรวจ</div>';
-    if (!c.RED && !c.GRAY && !c.YELLOW) return '<div class="chip-issue">ปกติทั้งหมด</div>';
-    const parts = [];
-    if (c.RED) parts.push(`<b>${c.RED}</b> ขัดข้อง`);
-    if (c.YELLOW) parts.push(`${c.YELLOW} ผ่าน`);
-    if (c.GRAY) parts.push(`${c.GRAY} ไม่ทราบ`);
-    return `<div class="chip-issue">${parts.join(' · ')}</div>`;
+    const items = VISIBLE_STATUS.filter(k => c[k] > 0).map(k =>
+        `<span class="ci" title="${CARD_TEXT[k]}"><i class="status-dot fill-${k.toLowerCase()}"></i>${c[k]}</span>`);
+    return `<div class="chip-issue">${items.join('')}</div>`;
 }
 
 /* ========================= Render ========================= */
@@ -753,13 +757,13 @@ function renderZoneOptions(scope) {
 function renderCards(scope) {
     const c = tally(scope);
     const sel = document.getElementById('statusFilter').value;
-    const cards = [
-        { key: 'ALL',    title: 'RTU ในมุมมองนี้', value: c.total, color: 'var(--mwa-deep-blue)', dot: '' },
-        { key: 'GREEN',  title: 'ปกติ',       value: c.GREEN,  color: 'var(--status-green-fill)',  dot: 'fill-green' },
-        { key: 'YELLOW', title: 'บริหารข้อมูล-ผ่าน', value: c.YELLOW, color: 'var(--status-yellow-fill)', dot: 'fill-yellow' },
-        { key: 'RED',    title: 'ขัดข้อง',    value: c.RED,    color: 'var(--status-red-fill)',    dot: 'fill-red' },
-        { key: 'GRAY',   title: 'ออฟไลน์ / ไม่ทราบ', value: c.GRAY,   color: 'var(--status-gray-fill)',   dot: 'fill-gray' }
-    ];
+    const color = { GREEN: 'var(--status-green-fill)', YELLOW: 'var(--status-yellow-fill)',
+                    RED: 'var(--status-red-fill)', GRAY: 'var(--status-gray-fill)' };
+    const cards = [{ key: 'ALL', title: 'RTU ในมุมมองนี้', value: c.total,
+                     color: 'var(--mwa-deep-blue)', dot: '' }]
+        .concat(VISIBLE_STATUS.map(k => ({
+            key: k, title: CARD_TEXT[k], value: c[k], color: color[k], dot: 'fill-' + k.toLowerCase()
+        })));
     document.getElementById('summaryGrid').innerHTML = cards.map(cd => `
         <div class="card ${sel === cd.key ? 'active' : ''}" tabindex="0" role="button"
              onclick="setStatus('${cd.key}')" onkeydown="cardKey(event,'${cd.key}')"
@@ -772,6 +776,14 @@ function renderCards(scope) {
 
 /* สร้างหัวตารางจาก VISIBLE_GROUPS ครั้งเดียวตอนเริ่ม
    ด่านที่ปิดใช้งานจะไม่มีคอลัมน์ ไม่ต้องแก้ HTML เมื่อเปิดปิดด่าน */
+function renderStatusOptions() {
+    const sel = document.getElementById('statusFilter');
+    const keep = sel.value || 'ALL';
+    sel.innerHTML = '<option value="ALL">สถานะทั้งหมด</option>' +
+        VISIBLE_STATUS.map(k => `<option value="${k}">${CARD_TEXT[k]}</option>`).join('');
+    sel.value = [...sel.options].some(o => o.value === keep) ? keep : 'ALL';
+}
+
 function renderTableHead() {
     let r1 = '<th class="grp" colspan="2"></th>';
     let r2 = '<th>RTU</th><th>ภาพรวม</th>';
@@ -1059,6 +1071,7 @@ async function loadAll() {
     const btn = document.getElementById('btnRefresh');
     btn.disabled = true;
     renderTableHead();
+    renderStatusOptions();
     document.getElementById('tableBody').innerHTML = stateRow('กำลังโหลดข้อมูล...');
     try {
         const raw = await DataSource.getStatus();
