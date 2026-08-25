@@ -365,7 +365,14 @@ const CONFIG = {
     APPS_SCRIPT: { url: 'https://script.google.com/macros/s/AKfycbxSYzNUKtfUAFRMG9G-EOHiJzr9nECms24o-SHUUZRax68-KamgJWeKwuKQTSKJIwWr1Q/exec' },
     CSV: { statusUrl: '', historyUrl: '' },
     PAGE_SIZE: 25,
-    HISTORY_DAYS: 30
+    HISTORY_DAYS: 30,
+
+    /* ควบคุมว่าด่านที่ปิดใช้งาน (enabled: false) จะกดเพดานสถานะไว้ที่เหลืองหรือไม่
+       false = มองข้ามด่านที่ปิดสนิท ตู้ที่ผ่านทุกด่านที่เปิดอยู่จะขึ้นเขียว
+               "เขียว" จึงแปลว่า ผ่านเท่าที่ตรวจ ไม่ใช่ ผ่านทั้งสาย
+       true  = ตู้จะขึ้นเขียวได้ต่อเมื่อเปิดใช้ครบทุกด่านและผ่านหมด
+               ระหว่างที่ยังปิดบางด่าน ดีที่สุดคือเหลือง "บริหารข้อมูล-ผ่าน" */
+    CAP_AT_YELLOW_WHEN_OFF: false
 };
 
 /* ========================= โครงสร้างด่านตรวจ ========================= */
@@ -624,14 +631,14 @@ function processRTU(raw) {
     });
 
     /* ลำดับ: ตู้ติดต่อไม่ได้ > ขัดข้อง > แจ้งเตือน > ไม่ทราบผล > ผ่านไม่ครบสาย > ปกติ
-       ตู้จะขึ้นเขียวเต็มได้ต่อเมื่อทุกด่านเปิดใช้งานและผ่านหมด
-       ถ้ายังมีด่านที่ปิดอยู่ ดีที่สุดคือเหลือง เพราะยังไม่ได้พิสูจน์ปลายทาง */
+       ขั้นสุดท้ายทำงานเฉพาะเมื่อ CAP_AT_YELLOW_WHEN_OFF เป็น true */
+    const cap = CONFIG.CAP_AT_YELLOW_WHEN_OFF && OFF_COUNT > 0;
     let overall = 'GREEN', reason = 'ok';
     if (p.network === 'RED')                            { overall = 'GRAY';   reason = 'offline'; }
     else if (ACTIVE_STEPS.some(k => p[k] === 'RED'))     { overall = 'RED';    reason = 'fail'; }
     else if (ACTIVE_STEPS.some(k => p[k] === 'YELLOW'))  { overall = 'YELLOW'; reason = 'warn'; }
     else if (unknown > 0)                                { overall = 'GRAY';   reason = 'unknown'; }
-    else if (OFF_COUNT > 0)                              { overall = 'YELLOW'; reason = 'partial'; }
+    else if (cap)                                        { overall = 'YELLOW'; reason = 'partial'; }
 
     if (reason === 'unknown') {
         causes.push({
@@ -648,7 +655,7 @@ function processRTU(raw) {
     p.overall = overall;
     p.overallReason = reason;
     p.unknownSteps = unknown;
-    p.causes = causes.length ? causes : [{ level: 'GREEN', text: 'ทำงานปกติทุกด่าน' }];
+    p.causes = causes.length ? causes : [{ level: 'GREEN', text: 'ทำงานปกติทุกด่านที่เปิดใช้งาน' }];
     p.hasValues = (p.wlma === 'GREEN' || p.wlma === 'YELLOW' || p.wlma === 'OFF');
     return p;
 }
