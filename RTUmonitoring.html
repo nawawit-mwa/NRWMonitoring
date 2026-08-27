@@ -410,9 +410,9 @@ const CAUSE_TEXT = {
     dq:      { RED: 'ข้อมูลผิดปกติรุนแรง',            YELLOW: 'พบข้อสังเกตด้านคุณภาพข้อมูล' }
 };
 const OVERALL_TEXT = { GREEN: 'ปกติ', YELLOW: 'บริหารข้อมูล-ผ่าน', RED: 'ขัดข้อง',
-                       GRAY: 'OFFLINE', ISSUE: 'ติดเหตุ' };
+                       GRAY: 'ไม่ทราบสถานะ', ISSUE: 'ติดเหตุ' };
 const CARD_TEXT    = { GREEN: 'ปกติ', YELLOW: 'บริหารข้อมูล-ผ่าน', RED: 'ขัดข้อง',
-                       GRAY: 'OFFLINE', ISSUE: 'ติดเหตุ' };
+                       GRAY: 'ไม่ทราบสถานะ', ISSUE: 'ติดเหตุ' };
 const STATUS_KEYS = ['GREEN', 'YELLOW', 'RED', 'GRAY', 'ISSUE'];
 
 /* คำในคอลัมน์ remark ที่ทำให้ตู้ถูกจัดเป็น "ติดเหตุ" */
@@ -646,28 +646,36 @@ function processRTU(raw) {
         });
     });
 
-    /* ลำดับ: ติดเหตุ > ตู้ติดต่อไม่ได้ > ขัดข้อง > แจ้งเตือน > ไม่ทราบผล > ผ่านไม่ครบสาย > ปกติ
-       ติดเหตุมาก่อนทุกอย่าง เพราะเป็นกรณีที่รู้สาเหตุและมีคนบันทึกไว้แล้ว
-       ขั้น partial ทำงานเฉพาะเมื่อ CAP_AT_YELLOW_WHEN_OFF เป็น true */
+    /* กติกาภาพรวม
+         1. remark มีคำว่าติดเหตุ           -> ติดเหตุ
+         2. ทุกด่านที่เปิดใช้เป็นเทาทั้งหมด    -> ไม่ทราบสถานะ (ยังไม่มีใครส่งผลตรวจเข้ามา)
+         3. ไม่เขียวครบทุกด่าน               -> ขัดข้อง  (เทาบางด่านก็ถือว่าไม่เขียว)
+         4. เขียวครบ แต่ยังมีด่านที่ปิดอยู่    -> เหลือง เฉพาะเมื่อ CAP_AT_YELLOW_WHEN_OFF เป็น true
+         5. นอกนั้น                          -> ปกติ */
     const cap = CONFIG.CAP_AT_YELLOW_WHEN_OFF && OFF_COUNT > 0;
     const isIssue = String(p.remark || '').indexOf(ISSUE_KEYWORD) >= 0;
+    const vals = ACTIVE_STEPS.map(k => p[k]);
+    const allGray  = vals.length > 0 && vals.every(v => v === 'GRAY');
+    const allGreen = vals.length > 0 && vals.every(v => v === 'GREEN');
+
     let overall = 'GREEN', reason = 'ok';
-    if (isIssue)                                        { overall = 'ISSUE';  reason = 'issue'; }
-    else if (p.network === 'RED')                       { overall = 'GRAY';   reason = 'offline'; }
-    else if (ACTIVE_STEPS.some(k => p[k] === 'RED'))     { overall = 'RED';    reason = 'fail'; }
-    else if (ACTIVE_STEPS.some(k => p[k] === 'YELLOW'))  { overall = 'YELLOW'; reason = 'warn'; }
-    else if (unknown > 0)                                { overall = 'GRAY';   reason = 'unknown'; }
-    else if (cap)                                        { overall = 'YELLOW'; reason = 'partial'; }
+    if (isIssue)        { overall = 'ISSUE'; reason = 'issue'; }
+    else if (allGray)   { overall = 'GRAY';  reason = 'unknown'; }
+    else if (!allGreen) {
+        const onlyYellow = CONFIG.ENABLE_YELLOW &&
+                           vals.some(v => v === 'YELLOW') &&
+                           !vals.some(v => v === 'RED' || v === 'GRAY');
+        overall = onlyYellow ? 'YELLOW' : 'RED';
+        reason  = onlyYellow ? 'warn' : 'fail';
+    }
+    else if (cap)       { overall = 'YELLOW'; reason = 'partial'; }
 
     if (p.remark) causes.unshift({ level: isIssue ? 'ISSUE' : 'GRAY', text: p.remark });
 
     if (reason === 'unknown') {
-        causes.push({
-            level: 'GRAY',
-            text: unknown === ACTIVE_STEPS.length
-                ? 'ยังไม่มีผลตรวจของตู้นี้ ระบบยังไม่ได้เขียนสถานะเข้ามา'
-                : `ยังไม่มีผลตรวจ ${unknown} ด่าน`
-        });
+        causes.push({ level: 'GRAY', text: 'ยังไม่มีผลตรวจของตู้นี้ ระบบยังไม่ได้เขียนสถานะเข้ามา' });
+    } else if (unknown > 0) {
+        causes.push({ level: 'GRAY', text: `ยังไม่มีผลตรวจ ${unknown} ด่าน` });
     }
     if (OFF_COUNT > 0) {
         causes.push({ level: 'OFF', text: `ยังไม่เปิดใช้การตรวจสอบ ${OFF_COUNT} ด่านปลายทาง` });
